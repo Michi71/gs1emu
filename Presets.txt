@@ -1,0 +1,56 @@
+
+No. 			Voice		Classification		Performance Notes
+=============================================================================
+1 				(1) A-1 	Harpsichord I 		Play with staccato
+																			touch, short sustain
+2 				(2) A-2 	Harpsichord III		Vary brightness with
+																			quickness of attack
+3 				    A-3 	Clavichord I 			Use staccato touch
+4 				(3) A-4 	Clavichord Il			Vary brightness and
+																			loudness with quick-
+																			ness of attack
+5 				(4) B-1 	Vibraphones 			Use slow, deep,
+																			vibrato; sustain
+6 				(5) B-2 	Celeste 					Play in upper octaves
+7 					B-3 	Electronic Piano I 	Play with or without
+8 					B-4		Electronic Piano II Ensemble
+9 				(6) C-1 	Acoustic Piano I 	Use detune for honky-
+10 					C-2 	Acoustic Piano II 	tonk piano sound.
+11 					C-3		Acoustic Piano III 	Boosted mids and
+																			highs gives CP-708
+																			sound
+12 				(7) C-4 	Electric Piano I 	Use sustain, vibrato, or
+13 					C-5 	Electric Piano II  	tremolo; use after touch
+14 				(8) C-6 	Electric Piano III 	for special effects
+15 					C-7 	Electric Piano IV 	Use staccato touch,
+																			sustain
+16				(9) D-1 	String I 					Play with and without
+																			Ensemble; use vibrato
+																			(delay with pedal
+																			action), and volume
+17 					D-2 	String II 					Use Ensemble
+18 				(10)D-3 	String Ensemble I Vary tone with quick-
+																			ness of attack
+19 					D-4 	String Ensemble II 	Use Ensemble, sustain
+20 				(11)E-1 	Brass I 					Vary tone with attack,
+21 				(12)E-2 	Brass II 					use after touch response
+22 					E-3 	Brass III						Quick attack gives
+																			bright sound in Channel II
+23 					E-4 	Synth Brass I 			Vary attack, use after
+24 					E-5 	Synth Brass II 			touch
+25 				(13)E-6 	Synth Brass III 	
+26 					E-7 	Synth Brass IV 			Vary attack for
+												amount o f 		brass
+27 				(14)F-1 	Electronic Organ I 	Use Ensemble for fast
+28				(15)F-2		Electronic Organ II	rotating speaker effect;
+																			volume pedal
+29 					F-3 	Wind Play 					in midrange for
+																			flute, upper for piccolo
+30 					F-4 	Clarinet 						Play in midrange for
+																			clarinet, lower for
+							 												bassoon
+31 				(16)F-5 	Pipe Organ 				Use volume pedal
+32 					G-1 	Steel Drum 					Use sustain, detune		
+=============================================================================
+* Numbers in brackets ( ) indicate factory pre-programmed voices and the 
+  memory buttons to which they have been assigned.										

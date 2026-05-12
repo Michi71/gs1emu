@@ -1,0 +1,55 @@
+KEYBOARDS 					88 keys A1~C7 (7 1/3 octaves)
+
+TONE GENERATOR 				Frequency Modulation System
+							4 Carry
+							4 Modulation
+							8 EG
+
+Maximum number of notes 	16 notes
+
+
+CONTROL PANEL
+=============
+DETUNE 						RANDOM 2
+							RANDOM 1
+							OFF 0
+							STATIC 1
+							STATIC 2
+
+TREMOLO 					TREMOLO SPEED
+							TREMOLO DEPTH
+
+VIBRATO 					VIBRATO SPEED
+							VIBRATO DEPTH
+
+TREMOLO 					Switch ON/OFF
+
+ENSEMBLE 					Switch ON/OFF
+
+TOUCH RESPONSE 				Switch ON/OFF
+
+TONESELECTORS 				1,2.3,4,5,6,7,-16
+
+EQUALIZER 					BASS
+							MIDDLE
+							TREBLE
+
+MASTER VOLUME
+
+CARD READER 				2 Pass/Tone
+STORE Switch
+
+OTHER CONTROLS& CONNECTIONS
+===========================
+MASTER PITCH 				+35 Cent to -25 Cent
+HEADPHONES Jack 			8 ohms Mixed OUT
+FOOT CONTROL Jack 			For Expression Pedal (YAMAHA FC-3A)
+PGM. LOCK 					Switch LOCK/UNLOCK
+LINE Switch 				ON/OFF
+BATTERY (Memory back-up) 	"AA" x 2
+
+PEDAL CONTROLS
+==============
+DAMPER Pedal
+TREMOLO Pedal
+VIBRATO Pedal
