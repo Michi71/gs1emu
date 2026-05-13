@@ -9,11 +9,11 @@
 void CSysEx::encodeFloat(float val, uint8_t out[5]) {
     uint32_t bits;
     std::memcpy(&bits, &val, 4);
-    out[0] = (bits >> 28) & 0x0F;         // 4 bit
-    out[1] = (bits >> 21) & 0x7F;         // 7 bit
-    out[2] = (bits >> 14) & 0x7F;         // 7 bit
-    out[3] = (bits >>  7) & 0x7F;         // 7 bit
-    out[4] = (bits      ) & 0x7F;         // 7 bit
+    out[0] = (bits >> 28) & 0x0F;
+    out[1] = (bits >> 21) & 0x7F;
+    out[2] = (bits >> 14) & 0x7F;
+    out[3] = (bits >>  7) & 0x7F;
+    out[4] = (bits      ) & 0x7F;
 }
 
 float CSysEx::decodeFloat(const uint8_t in[5]) {
@@ -57,74 +57,85 @@ uint8_t CSysEx::calcChecksum(const uint8_t* data, size_t len) {
 }
 
 // ============================================================
+// Hilfsmakros für encode/decode Schleifen
+// ============================================================
+
+static void encodeFloatArray(std::vector<uint8_t>& sysex,
+                             const float* arr, int count,
+                             void (*enc)(float, uint8_t[5])) {
+    uint8_t buf[5];
+    for (int i = 0; i < count; i++) {
+        enc(arr[i], buf);
+        sysex.insert(sysex.end(), buf, buf + 5);
+    }
+}
+
+static void encodeIntArray(std::vector<uint8_t>& sysex,
+                           const int* arr, int count,
+                           void (*enc)(int, uint8_t[5])) {
+    uint8_t buf[5];
+    for (int i = 0; i < count; i++) {
+        enc(arr[i], buf);
+        sysex.insert(sysex.end(), buf, buf + 5);
+    }
+}
+
+// ============================================================
 // Encode PatchConsts → SysEx
 // ============================================================
 
-std::vector<uint8_t> CSysEx::encodePatch(const PatchFile& patch) {
+std::vector<uint8_t> CSysEx::encodePatch(const PatchConsts& patch) {
     std::vector<uint8_t> sysex;
     sysex.push_back(SYSEX_START);
     sysex.push_back(SYSEX_MANUF_ID);
     sysex.push_back(SYSEX_DEVICE_ID);
     sysex.push_back(SYSEX_CMD_PATCH);
 
-    // Patch-Name
-    int nameLen = static_cast<int>(std::strlen(patch.name));
+    // Patch-Name aus PatchConsts::Name
+    int nameLen = static_cast<int>(std::strlen(patch.Name));
     if (nameLen > PATCH_NAME_MAX) nameLen = PATCH_NAME_MAX;
     sysex.push_back(static_cast<uint8_t>(nameLen));
     for (int i = 0; i < nameLen; i++) {
-        sysex.push_back(static_cast<uint8_t>(patch.name[i] & 0x7F));
+        sysex.push_back(static_cast<uint8_t>(patch.Name[i] & 0x7F));
     }
 
     // Beginn der Datenbytes (für Checksum)
     size_t dataStart = sysex.size();
 
-    uint8_t buf[5];
-
     // Ratios (4 floats)
-    for (int i = 0; i < 4; i++) {
-        encodeFloat(patch.data.Ratio[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
+    encodeFloatArray(sysex, patch.Ratio, 4, encodeFloat);
 
     // Detune (4 ints)
-    for (int i = 0; i < 4; i++) {
-        encodeInt(patch.data.Detune[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
+    encodeIntArray(sysex, patch.Detune, 4, encodeInt);
 
     // EC Arrays (4 × 46 floats)
-    for (int i = 0; i < 46; i++) {
-        encodeFloat(patch.data.C1EC[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
-    for (int i = 0; i < 46; i++) {
-        encodeFloat(patch.data.C2EC[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
-    for (int i = 0; i < 46; i++) {
-        encodeFloat(patch.data.M1EC[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
-    for (int i = 0; i < 46; i++) {
-        encodeFloat(patch.data.M2EC[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
+    encodeFloatArray(sysex, patch.C1EC, 46, encodeFloat);
+    encodeFloatArray(sysex, patch.C2EC, 46, encodeFloat);
+    encodeFloatArray(sysex, patch.M1EC, 46, encodeFloat);
+    encodeFloatArray(sysex, patch.M2EC, 46, encodeFloat);
 
     // ATE (4 floats)
-    for (int i = 0; i < 4; i++) {
-        encodeFloat(patch.data.ATE[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
+    encodeFloatArray(sysex, patch.ATE, 4, encodeFloat);
 
     // DTE1Scaling (1 float)
-    encodeFloat(patch.data.DTE1Scaling, buf);
+    uint8_t buf[5];
+    encodeFloat(patch.DTE1Scaling, buf);
     sysex.insert(sysex.end(), buf, buf + 5);
 
-    // DTE (4 floats)
-    for (int i = 0; i < 4; i++) {
-        encodeFloat(patch.data.DTE[i], buf);
-        sysex.insert(sysex.end(), buf, buf + 5);
-    }
+    // DTE (4 ints)
+    encodeIntArray(sysex, patch.DTE, 4, encodeInt);
+
+    // RTE (4 ints)
+    encodeIntArray(sysex, patch.RTE, 4, encodeInt);
+
+    // IL (4 ints)
+    encodeIntArray(sysex, patch.IL, 4, encodeInt);
+
+    // SL (4 ints)
+    encodeIntArray(sysex, patch.SL, 4, encodeInt);
+
+    // FMmode (2 ints)
+    encodeIntArray(sysex, patch.FMmode, 2, encodeInt);
 
     // Checksum über Datenbytes
     uint8_t cs = calcChecksum(sysex.data() + dataStart,
@@ -139,8 +150,28 @@ std::vector<uint8_t> CSysEx::encodePatch(const PatchFile& patch) {
 // Decode SysEx → PatchConsts
 // ============================================================
 
-bool CSysEx::decodePatch(const std::vector<uint8_t>& sysex, PatchFile& outPatch) {
-    // Minimale Validierung
+// Hilfsfunktion: Liest count Floats ab Position pos
+static bool decodeFloats(const std::vector<uint8_t>& sysex, size_t& pos,
+                         float* arr, int count) {
+    for (int i = 0; i < count; i++) {
+        if (pos + 5 > sysex.size()) return false;
+        arr[i] = CSysEx::decodeFloat(&sysex[pos]);
+        pos += 5;
+    }
+    return true;
+}
+
+static bool decodeInts(const std::vector<uint8_t>& sysex, size_t& pos,
+                       int* arr, int count) {
+    for (int i = 0; i < count; i++) {
+        if (pos + 5 > sysex.size()) return false;
+        arr[i] = CSysEx::decodeInt(&sysex[pos]);
+        pos += 5;
+    }
+    return true;
+}
+
+bool CSysEx::decodePatch(const std::vector<uint8_t>& sysex, PatchConsts& out) {
     if (sysex.size() < 8) return false;
     if (sysex[0] != SYSEX_START) return false;
     if (sysex[1] != SYSEX_MANUF_ID) return false;
@@ -153,74 +184,37 @@ bool CSysEx::decodePatch(const std::vector<uint8_t>& sysex, PatchFile& outPatch)
     // Name
     int nameLen = sysex[pos++];
     if (nameLen > PATCH_NAME_MAX) return false;
-    std::memset(outPatch.name, 0, sizeof(outPatch.name));
+    std::memset(out.Name, 0, sizeof(out.Name));
     for (int i = 0; i < nameLen; i++) {
         if (pos >= sysex.size()) return false;
-        outPatch.name[i] = static_cast<char>(sysex[pos++]);
+        out.Name[i] = static_cast<char>(sysex[pos++]);
     }
 
     size_t dataStart = pos;
 
-    // Ratios
-    for (int i = 0; i < 4; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.Ratio[i] = decodeFloat(&sysex[pos]);
-        pos += 5;
-    }
-
-    // Detune
-    for (int i = 0; i < 4; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.Detune[i] = decodeInt(&sysex[pos]);
-        pos += 5;
-    }
-
-    // EC Arrays
-    for (int i = 0; i < 46; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.C1EC[i] = decodeFloat(&sysex[pos]);
-        pos += 5;
-    }
-    for (int i = 0; i < 46; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.C2EC[i] = decodeFloat(&sysex[pos]);
-        pos += 5;
-    }
-    for (int i = 0; i < 46; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.M1EC[i] = decodeFloat(&sysex[pos]);
-        pos += 5;
-    }
-    for (int i = 0; i < 46; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.M2EC[i] = decodeFloat(&sysex[pos]);
-        pos += 5;
-    }
-
-    // ATE
-    for (int i = 0; i < 4; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.ATE[i] = decodeFloat(&sysex[pos]);
-        pos += 5;
-    }
+    if (!decodeFloats(sysex, pos, out.Ratio, 4)) return false;
+    if (!decodeInts(sysex, pos, out.Detune, 4)) return false;
+    if (!decodeFloats(sysex, pos, out.C1EC, 46)) return false;
+    if (!decodeFloats(sysex, pos, out.C2EC, 46)) return false;
+    if (!decodeFloats(sysex, pos, out.M1EC, 46)) return false;
+    if (!decodeFloats(sysex, pos, out.M2EC, 46)) return false;
+    if (!decodeFloats(sysex, pos, out.ATE, 4)) return false;
 
     // DTE1Scaling
     if (pos + 5 > sysex.size()) return false;
-    outPatch.data.DTE1Scaling = decodeFloat(&sysex[pos]);
+    out.DTE1Scaling = decodeFloat(&sysex[pos]);
     pos += 5;
 
-    // DTE
-    for (int i = 0; i < 4; i++) {
-        if (pos + 5 > sysex.size()) return false;
-        outPatch.data.DTE[i] = decodeFloat(&sysex[pos]);
-        pos += 5;
-    }
+    if (!decodeInts(sysex, pos, out.DTE, 4)) return false;
+    if (!decodeInts(sysex, pos, out.RTE, 4)) return false;
+    if (!decodeInts(sysex, pos, out.IL, 4)) return false;
+    if (!decodeInts(sysex, pos, out.SL, 4)) return false;
+    if (!decodeInts(sysex, pos, out.FMmode, 2)) return false;
 
-    // Checksum verifizieren
+    // Checksum
     if (pos + 2 > sysex.size()) return false;
     uint8_t expectedCs = calcChecksum(sysex.data() + dataStart, pos - dataStart);
-    uint8_t actualCs = sysex[pos];
-    if (expectedCs != actualCs) return false;
+    if (expectedCs != sysex[pos]) return false;
 
     return true;
 }
@@ -229,7 +223,7 @@ bool CSysEx::decodePatch(const std::vector<uint8_t>& sysex, PatchFile& outPatch)
 // File I/O
 // ============================================================
 
-bool CSysEx::saveToFile(const std::string& path, const PatchFile& patch) {
+bool CSysEx::saveToFile(const std::string& path, const PatchConsts& patch) {
     auto sysex = encodePatch(patch);
     std::ofstream file(path, std::ios::binary);
     if (!file.is_open()) return false;
@@ -238,7 +232,7 @@ bool CSysEx::saveToFile(const std::string& path, const PatchFile& patch) {
     return file.good();
 }
 
-bool CSysEx::loadFromFile(const std::string& path, PatchFile& outPatch) {
+bool CSysEx::loadFromFile(const std::string& path, PatchConsts& outPatch) {
     std::ifstream file(path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) return false;
     auto size = file.tellg();

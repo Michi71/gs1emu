@@ -18,6 +18,10 @@ static int logsinTable[256];
 static int expTable[256];
 static int expTable2[4096];
 
+// Ziel: LFO1 ca. 0.3 Hz (Slow), LFO2 ca. 3.1 Hz (Fast)
+const float lfo1Inc = (0.313f * 65536.0f) / SampleRate; 
+const float lfo2Inc = (3.121f * 65536.0f) / SampleRate;
+
 static double map(double x, double in_min, double in_max, double out_min,
                   double out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -52,6 +56,9 @@ void CGS1Emu::setCurrentProgram(int index) {
   currentPatch = index;
 }
 
+void CGS1Emu::setEnsembleOn(bool ensonoff) { ensembleOn = ensonoff; }
+bool CGS1Emu::getEnsembleOn() { return ensembleOn; }
+
 void CGS1Emu::noteOn(VoiceState &voiceState, float KNOTE,
                                         float Velocity) {
   const PatchConsts& patch = *patches[currentPatch];
@@ -79,6 +86,16 @@ void CGS1Emu::noteOn(VoiceState &voiceState, float KNOTE,
   voiceState.KNOTE = voiceState.KNOTE - 1;
   voiceState.NOTE = 27.50 * pow(2, (voiceState.KNOTE / (12))); // FROM A1
   voiceState.rnd = 0;
+
+  for (int i = 0; i < 4; i++) {
+    voiceState.DTE[i] = patch.DTE[i];
+    voiceState.RTE[i] = patch.RTE[i];
+    voiceState.IL[i]  = patch.IL[i];
+    voiceState.SL[i]  = patch.SL[i];
+  }
+  
+  voiceState.FMmode[0] = patch.FMmode[0];
+  voiceState.FMmode[1] = patch.FMmode[1];
 
   // Calculate phase accumulator control words.
   voiceState.CW[0] = int(
@@ -111,13 +128,7 @@ void CGS1Emu::noteOn(VoiceState &voiceState, float KNOTE,
   voiceState.AT[1] = patch.ATE[1] * map((voiceState.KNOTE + 1), 1, 88, 1, 4);
   voiceState.AT[2] = patch.ATE[2] * map((voiceState.KNOTE + 1), 1, 88, 1, 4);
   voiceState.AT[3] = patch.ATE[3] * map((voiceState.KNOTE + 1), 1, 88, 1, 4);
-  // DTE aus dem Patch übernehmen (vorher hardcoded {2,2,1,1} in VoiceState).
-  // Damit kann jeder Operator individuell konfiguriert werden — z.B. ein
-  // schneller Hammer-Decay für M2 beim Klavier-Patch.
-  voiceState.DTE[0] = patch.DTE[0];
-  voiceState.DTE[1] = patch.DTE[1];
-  voiceState.DTE[2] = patch.DTE[2];
-  voiceState.DTE[3] = patch.DTE[3];
+
   voiceState.DT[0] = voiceState.DTE[0] * map((voiceState.KNOTE + 1), 1, 88, 0.5, 3);
   voiceState.DT[1] =
       voiceState.DTE[1] * map((voiceState.KNOTE + 1), 1, 88, 0.5, patch.DTE1Scaling);
@@ -255,6 +266,24 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
       voiceState.AMP[check] = 4095;
     }
   }
+
+  /*// 1. LFO für Tremolo (ca. 1.0Hz bis 7.0Hz)
+  // In deiner Klasse als Member: float tremoloPhase;
+  tremoloPhase += tremoloInc; // tremoloInc = (freq * 65536) / 34687
+  if (tremoloPhase >= 65536.0f) tremoloPhase -= 65536.0f;
+
+  // 2. Tremolo-Wert berechnen (0.0 bis 1.0)
+  float tremoloMod = 1.0f - (tremoloDepth * (0.5f + 0.5f * sin(tremoloPhase * TWO_PI_OVER_65536)));
+
+  // 3. Anwendung auf die Carrier-Amplituden
+  // Wichtig: Nur auf die Carrier (AMP[0] und AMP[1]), 
+  // damit die Klangfarbe (Modulationsindex) stabil bleibt!
+  int finalAmp0 = (int)(voiceState.AMP[0] * tremoloMod);
+  int finalAmp1 = (int)(voiceState.AMP[1] * tremoloMod);
+  */
+
+  // In deiner Routing-Logik nutzt du dann finalAmp statt voiceState.AMP
+
   // Update all Phase accumulators..(28bit)
   for (int n = 0; n < 4; n++) {
     voiceState.PAI[n] = voiceState.PAI[n] & 0xFFFFFFF;
@@ -434,7 +463,6 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
 
 CGS1Emu::CGS1Emu()
     : lastVoice(0),
-      chorusPos(0),
       currentPatch(0),
       sampleRate(SampleRate),
       delayA(),
@@ -558,36 +586,43 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
 
         float sample = map(sumSample, -262144.0f / 6, 262112.0f / 6, -1.0f, 1.0f);
         sample = _filter.process(sample);
-        outputL[i] = sample;
-        outputR[i] = sample;
 
-/*        delayA.pushSample(sample);
-        delayB.pushSample(sample);
-        delayC.pushSample(sample);
+        if (ensembleOn == false) {
+            outputL[i] = sample;
+            outputR[i] = sample;
+        } else {
+            delayA.pushSample(sample);
+            delayB.pushSample(sample);
+            delayC.pushSample(sample);
 
-        chorusPos++;
+            lfo1Phase += lfo1Inc;
+            lfo2Phase += lfo2Inc;
 
-        float A1 = sin(map((chorusPos & 65535), 0, 65535, 0, TWO_PI));
-        float B1 = sin(map((chorusPos & 65535), 0, 6553.5, 0, TWO_PI));
-        // Slightly random to make more analog effect feel
-        float lup1 = map(((A1 * 2.7) + B1) / 3.7, -1, 1, 0, 61);
-        float A2 =
-            sin(map(((chorusPos & 65535) + 21845) & 65535, 0, 65535, 0, TWO_PI));
-        float B2 =
-            sin(map(((chorusPos & 65535) + 21845) & 65535, 0, 6553.5, 0, TWO_PI));
-        float lup2 = map(((A2 * 2.7) + B2) / 3.7, -1, 1, 0, 60);
-        float A3 =
-            sin(map(((chorusPos & 65535) + 43690) & 65535, 0, 65535, 0, TWO_PI));
-        float B3 =
-            sin(map(((chorusPos & 65535) + 43690) & 65535, 0, 6553.5, 0, TWO_PI));
-        float lup3 = map(((A3 * 2.7) + B3) / 3.7, -1, 1, 0, 63);
+            // Phasen-Offsets für die 3 Delay-Lines (120 Grad Versatz)
+            float phaseOffset2 = 21845.0f; // 1/3 von 65536
+            float phaseOffset3 = 43690.0f; // 2/3 von 65536
 
-        delayA.setDelay(lup1);
-        delayB.setDelay(lup2);
-        delayC.setDelay(lup3);
+            // Berechnung der Modulation für Line A, B und C
+            auto getMod = [&](float phaseOffset) {
+                float p1 = fmod(lfo1Phase + phaseOffset, 65536.0f) / 65536.0f;
+                float p2 = fmod(lfo2Phase + phaseOffset, 65536.0f) / 65536.0f;
+                // GS1 Mix: Viel Slow, wenig Fast Modulation
+                return (std::sin(p1 * TWO_PI) * 0.85f + std::sin(p2 * TWO_PI) * 0.15f);
+            };
 
-        float sampA = delayA.popSample();
-        outputL[i] = (sampA / 2.0f) + delayC.popSample();
-        outputR[i] = (sampA / 2.0f) + delayB.popSample(); */
+            // Delay-Zeiten in Samples (GS1 nutzt ca. 5ms bis 10ms Basis-Delay)
+            float baseDelay = 180.0f; // ca. 5.2ms bei 34.6kHz
+            float modDepth = 60.0f;   // Modulationstiefe
+
+            delayA.setDelay(baseDelay + getMod(0.0f) * modDepth);
+            delayB.setDelay(baseDelay + getMod(phaseOffset2) * modDepth);
+            delayC.setDelay(baseDelay + getMod(phaseOffset3) * modDepth);
+            
+            float sampA = delayA.popSample();
+            float sampB = delayB.popSample();
+            float sampC = delayC.popSample();
+            outputL[i] = (sample * 0.5f) + (sampA * 0.5f) - (sampB * 0.3f);
+            outputR[i] = (sample * 0.5f) + (sampC * 0.5f) - (sampB * 0.3f);
+        }
     }
 }

@@ -13,6 +13,8 @@ Clavinet        Kurzer, harter Anschlag             Keyboard
 Synth Lead      Monophon, expressiv Lead            Synth
 */
 
+static constexpr int PATCH_NAME_MAX = 16;
+
 struct PatchConsts {
     float Ratio[4];
     int Detune[4];
@@ -22,14 +24,13 @@ struct PatchConsts {
     float M2EC[46];
     float ATE[4];
     float DTE1Scaling;
-    // Pro-Operator-Decay-Skalierung (DTE[0]=C1, [1]=C2, [2]=M1, [3]=M2).
-    // Höhere Werte = schnelleres Decay. Wird im noteOn() pro Note über die
-    // Tastatur skaliert (siehe gs1emu.cpp). Default {2,2,1,1} entspricht
-    // dem historischen Wert aus VoiceState — alte Patches die dieses Feld
-    // nicht setzen, behalten dadurch ihr ursprüngliches Decay-Verhalten.
-    // Sonderfall: DTE[1] (C2) wird zusätzlich mit patch.DTE1Scaling über
-    // die Tastatur multipliziert.
-    float DTE[4] = {2.0f, 2.0f, 1.0f, 1.0f};
+
+    int DTE[4] = {2, 2, 1, 1};          // Decay Time Rates
+    int RTE[4] = {100, 100, 100, 100};  // Release Time Rates
+    int IL[4] = {0, 0, 0, 0};           // Initial Levels (meist 0)
+    int SL[4] = {0, 0, 0, 0};           // Sustain Levels (Wichtig für Orgel/Strings!)
+    int FMmode[2] = {0, 0};             // Mode für Stack 1 & Stack 2
+    char Name[PATCH_NAME_MAX + 1] = {0}; // Patch-Name (max 16 Zeichen + Null)
 };
 
 // E-Piano 1
@@ -236,7 +237,7 @@ const PatchConsts patchEPiano2 = {
 
 
 // 🔔 Bell/Tine Sound
-const PatchConsts patchBell = {
+const PatchConsts patchBellTine = {
     {1, 2.5, 5.8, 9.2},         // leicht verschobene Ratios → asymmetrisch, spannend
     {0, 30, -20, 12},           // etwas mehr Detune → lebendige Schwebung
 

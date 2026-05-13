@@ -1,7 +1,6 @@
 #pragma once
 
 #include "delayline.h"
-#include "patchdata.h"
 #include "gs1_presets.h"
 #include <cstdint>
 #include <cstring>
@@ -107,12 +106,14 @@ public:
   int getCurrentProgram();
   void setCurrentProgram(int index);
 
+  void setEnsembleOn(bool ensonoff);
+  bool getEnsembleOn();
+
   VoiceState voiceStates[MAXVOICES];
 
   const PatchConsts* patches[16];       // GS1 Factory Presets (1)–(16)
   
   int lastVoice = 0;
-  int chorusPos = 0;
   int currentPatch = 0;
   int sampleRate;
 
@@ -123,6 +124,11 @@ private:
 
   // Filter 
   GS1BiquadFilter _filter;
+
+  // Ensemble On/Off
+  bool ensembleOn = false;
+  float lfo1Phase = 0;
+  float lfo2Phase = 0;
 
   DelayLine delayA;
   DelayLine delayB;

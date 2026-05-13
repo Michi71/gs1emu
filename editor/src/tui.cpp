@@ -5,7 +5,7 @@
 #include <algorithm>
 
 static const char* OP_NAMES[] = {"C1", "C2", "M1", "M2"};
-static const char* PARAM_NAMES[] = {"Ratio", "Detune", "ATE", "DTE"};
+static const char* PARAM_NAMES[] = {"Ratio", "Detune", "ATE", "DTE", "RTE", "IL", "SL"};
 
 // Farb-Paare
 enum Colors {
@@ -24,7 +24,7 @@ enum Colors {
 
 CTui::CTui(CAudioEngine& audio) : m_audio(audio) {
     std::memset(&m_patch, 0, sizeof(m_patch));
-    std::snprintf(m_patch.name, PATCH_NAME_MAX, "Init");
+    std::snprintf(m_patch.Name, PATCH_NAME_MAX, "Init");
 }
 
 CTui::~CTui() {
@@ -116,7 +116,7 @@ void CTui::drawTitle() {
     }
 
     attron(COLOR_PAIR(COL_NORMAL));
-    printw("Patch: %-16s  Program: %d", m_patch.name, m_audio.getProgram());
+    printw("Patch: %-16s  Program: %d", m_patch.Name, m_audio.getProgram());
     attroff(COLOR_PAIR(COL_HEADER));
 
     attron(COLOR_PAIR(COL_NORMAL));
@@ -153,22 +153,27 @@ void CTui::drawOperators() {
             if (isSelected) attron(COLOR_PAIR(COL_HIGHLIGHT));
             else attron(COLOR_PAIR(COL_NORMAL));
 
-            float val = 0;
             switch (static_cast<OperatorParam>(p)) {
                 case OperatorParam::Ratio:
-                    val = m_patch.data.Ratio[op];
-                    printw("  %6.2f  ", val);
+                    printw("  %6.2f  ", m_patch.Ratio[op]);
                     break;
                 case OperatorParam::Detune:
-                    printw("  %+4d ct ", m_patch.data.Detune[op]);
+                    printw("  %+4d ct ", m_patch.Detune[op]);
                     break;
                 case OperatorParam::ATE:
-                    val = m_patch.data.ATE[op];
-                    printw("  %6.0f  ", val);
+                    printw("  %6.0f  ", m_patch.ATE[op]);
                     break;
                 case OperatorParam::DTE:
-                    val = m_patch.data.DTE[op];
-                    printw("  %6.2f  ", val);
+                    printw("  %5d   ", m_patch.DTE[op]);
+                    break;
+                case OperatorParam::RTE:
+                    printw("  %5d   ", m_patch.RTE[op]);
+                    break;
+                case OperatorParam::IL:
+                    printw("  %5d   ", m_patch.IL[op]);
+                    break;
+                case OperatorParam::SL:
+                    printw("  %5d   ", m_patch.SL[op]);
                     break;
                 default: break;
             }
@@ -181,25 +186,36 @@ void CTui::drawOperators() {
 }
 
 void CTui::drawGlobals() {
-    int row = 7;
+    int row = 2 + static_cast<int>(OperatorParam::COUNT) + 1; // nach Operator-Tabelle
     bool isSelected = (m_section == Section::Globals);
 
     attron(COLOR_PAIR(COL_HEADER));
     mvprintw(row, 0, " Globals");
     attroff(COLOR_PAIR(COL_HEADER));
 
-    if (isSelected) attron(COLOR_PAIR(COL_HIGHLIGHT));
+    // DTE1Scaling
+    if (isSelected && m_selectedParam == 0) attron(COLOR_PAIR(COL_HIGHLIGHT));
     else attron(COLOR_PAIR(COL_NORMAL));
+    mvprintw(row + 1, 1, "DTE1Scaling: %6.2f", m_patch.DTE1Scaling);
+    if (isSelected && m_selectedParam == 0) attroff(COLOR_PAIR(COL_HIGHLIGHT));
 
-    mvprintw(row + 1, 1, "DTE1Scaling: %6.2f", m_patch.data.DTE1Scaling);
+    // FMmode
+    if (isSelected && m_selectedParam == 1) attron(COLOR_PAIR(COL_HIGHLIGHT));
+    else attron(COLOR_PAIR(COL_NORMAL));
+    printw("   FMmode1: %d", m_patch.FMmode[0]);
+    if (isSelected && m_selectedParam == 1) attroff(COLOR_PAIR(COL_HIGHLIGHT));
 
-    if (isSelected) attroff(COLOR_PAIR(COL_HIGHLIGHT));
+    if (isSelected && m_selectedParam == 2) attron(COLOR_PAIR(COL_HIGHLIGHT));
+    else attron(COLOR_PAIR(COL_NORMAL));
+    printw("   FMmode2: %d", m_patch.FMmode[1]);
+    if (isSelected && m_selectedParam == 2) attroff(COLOR_PAIR(COL_HIGHLIGHT));
 
     mvhline(row + 2, 0, ACS_HLINE, 80);
 }
 
 void CTui::drawCurve() {
-    int startRow = 10;
+    // Dynamisch nach Operators + Globals positionieren
+    int startRow = 2 + static_cast<int>(OperatorParam::COUNT) + 1 + 3 + 1; // ops + sep + globals + sep
     int height = 8;
     int width = EC_ZONES;  // 44 Spalten für die Keyboard-Zonen
 
@@ -365,9 +381,6 @@ void CTui::handleInput(int ch) {
 }
 
 void CTui::handleOperatorInput(int ch) {
-    float step = 0.01f;
-    float bigStep = 0.1f;
-
     switch (ch) {
         case KEY_LEFT:
             m_selectedOp = std::max(0, m_selectedOp - 1);
@@ -387,20 +400,29 @@ void CTui::handleOperatorInput(int ch) {
         case '=':
         case KEY_PPAGE:
         {
-            float delta = (ch == KEY_PPAGE) ? bigStep : step;
+            bool big = (ch == KEY_PPAGE);
+            int op = m_selectedOp;
             switch (static_cast<OperatorParam>(m_selectedParam)) {
                 case OperatorParam::Ratio:
-                    m_patch.data.Ratio[m_selectedOp] = std::max(0.0f,
-                        m_patch.data.Ratio[m_selectedOp] + delta);
+                    m_patch.Ratio[op] += big ? 0.1f : 0.01f;
                     break;
                 case OperatorParam::Detune:
-                    m_patch.data.Detune[m_selectedOp] += (ch == KEY_PPAGE) ? 5 : 1;
+                    m_patch.Detune[op] += big ? 5 : 1;
                     break;
                 case OperatorParam::ATE:
-                    m_patch.data.ATE[m_selectedOp] += (ch == KEY_PPAGE) ? 500.0f : 100.0f;
+                    m_patch.ATE[op] += big ? 500.0f : 100.0f;
                     break;
                 case OperatorParam::DTE:
-                    m_patch.data.DTE[m_selectedOp] += delta;
+                    m_patch.DTE[op] += big ? 5 : 1;
+                    break;
+                case OperatorParam::RTE:
+                    m_patch.RTE[op] += big ? 10 : 1;
+                    break;
+                case OperatorParam::IL:
+                    m_patch.IL[op] += big ? 10 : 1;
+                    break;
+                case OperatorParam::SL:
+                    m_patch.SL[op] += big ? 10 : 1;
                     break;
                 default: break;
             }
@@ -413,22 +435,29 @@ void CTui::handleOperatorInput(int ch) {
         case '_':
         case KEY_NPAGE:
         {
-            float delta = (ch == KEY_NPAGE) ? bigStep : step;
+            bool big = (ch == KEY_NPAGE);
+            int op = m_selectedOp;
             switch (static_cast<OperatorParam>(m_selectedParam)) {
                 case OperatorParam::Ratio:
-                    m_patch.data.Ratio[m_selectedOp] = std::max(0.0f,
-                        m_patch.data.Ratio[m_selectedOp] - delta);
+                    m_patch.Ratio[op] = std::max(0.0f, m_patch.Ratio[op] - (big ? 0.1f : 0.01f));
                     break;
                 case OperatorParam::Detune:
-                    m_patch.data.Detune[m_selectedOp] -= (ch == KEY_NPAGE) ? 5 : 1;
+                    m_patch.Detune[op] -= big ? 5 : 1;
                     break;
                 case OperatorParam::ATE:
-                    m_patch.data.ATE[m_selectedOp] = std::max(0.0f,
-                        m_patch.data.ATE[m_selectedOp] - ((ch == KEY_NPAGE) ? 500.0f : 100.0f));
+                    m_patch.ATE[op] = std::max(0.0f, m_patch.ATE[op] - (big ? 500.0f : 100.0f));
                     break;
                 case OperatorParam::DTE:
-                    m_patch.data.DTE[m_selectedOp] = std::max(0.0f,
-                        m_patch.data.DTE[m_selectedOp] - delta);
+                    m_patch.DTE[op] = std::max(0, m_patch.DTE[op] - (big ? 5 : 1));
+                    break;
+                case OperatorParam::RTE:
+                    m_patch.RTE[op] = std::max(0, m_patch.RTE[op] - (big ? 10 : 1));
+                    break;
+                case OperatorParam::IL:
+                    m_patch.IL[op] = std::max(0, m_patch.IL[op] - (big ? 10 : 1));
+                    break;
+                case OperatorParam::SL:
+                    m_patch.SL[op] = std::max(0, m_patch.SL[op] - (big ? 10 : 1));
                     break;
                 default: break;
             }
@@ -441,26 +470,54 @@ void CTui::handleOperatorInput(int ch) {
 
 void CTui::handleGlobalInput(int ch) {
     switch (ch) {
-        case '+': case '=':
-            m_patch.data.DTE1Scaling += 0.1f;
+        case KEY_UP:
+            m_selectedParam = std::max(0, m_selectedParam - 1);
+            break;
+        case KEY_DOWN:
+            m_selectedParam = std::min(static_cast<int>(GlobalParam::COUNT) - 1,
+                                       m_selectedParam + 1);
+            break;
+
+        case '+': case '=': case KEY_PPAGE:
+        {
+            bool big = (ch == KEY_PPAGE);
+            switch (static_cast<GlobalParam>(m_selectedParam)) {
+                case GlobalParam::DTE1Scaling:
+                    m_patch.DTE1Scaling += big ? 1.0f : 0.1f;
+                    break;
+                case GlobalParam::FMmode1:
+                    m_patch.FMmode[0] = std::min(3, m_patch.FMmode[0] + 1);
+                    break;
+                case GlobalParam::FMmode2:
+                    m_patch.FMmode[1] = std::min(3, m_patch.FMmode[1] + 1);
+                    break;
+                default: break;
+            }
             m_modified = true;
             pushPatchToEngine();
             break;
-        case '-': case '_':
-            m_patch.data.DTE1Scaling = std::max(0.0f, m_patch.data.DTE1Scaling - 0.1f);
+        }
+
+        case '-': case '_': case KEY_NPAGE:
+        {
+            bool big = (ch == KEY_NPAGE);
+            switch (static_cast<GlobalParam>(m_selectedParam)) {
+                case GlobalParam::DTE1Scaling:
+                    m_patch.DTE1Scaling = std::max(0.0f,
+                        m_patch.DTE1Scaling - (big ? 1.0f : 0.1f));
+                    break;
+                case GlobalParam::FMmode1:
+                    m_patch.FMmode[0] = std::max(0, m_patch.FMmode[0] - 1);
+                    break;
+                case GlobalParam::FMmode2:
+                    m_patch.FMmode[1] = std::max(0, m_patch.FMmode[1] - 1);
+                    break;
+                default: break;
+            }
             m_modified = true;
             pushPatchToEngine();
             break;
-        case KEY_PPAGE:
-            m_patch.data.DTE1Scaling += 1.0f;
-            m_modified = true;
-            pushPatchToEngine();
-            break;
-        case KEY_NPAGE:
-            m_patch.data.DTE1Scaling = std::max(0.0f, m_patch.data.DTE1Scaling - 1.0f);
-            m_modified = true;
-            pushPatchToEngine();
-            break;
+        }
     }
 }
 
@@ -563,12 +620,12 @@ void CTui::handleCurveInput(int ch) {
 
 void CTui::pushPatchToEngine() {
     // EC-Kurven aus den Generatoren in den Patch schreiben
-    m_curves[0].generate(m_patch.data.C1EC);
-    m_curves[1].generate(m_patch.data.C2EC);
-    m_curves[2].generate(m_patch.data.M1EC);
-    m_curves[3].generate(m_patch.data.M2EC);
+    m_curves[0].generate(m_patch.C1EC);
+    m_curves[1].generate(m_patch.C2EC);
+    m_curves[2].generate(m_patch.M1EC);
+    m_curves[3].generate(m_patch.M2EC);
 
-    m_audio.updatePatch(m_patch.data);
+    m_audio.updatePatch(m_patch);
 }
 
 void CTui::rebuildPatchFromCurves() {
@@ -580,13 +637,13 @@ void CTui::loadFactoryPatch(int index) {
     m_audio.setProgram(index);
     const PatchConsts* p = m_audio.getCurrentPatch();
     if (p) {
-        m_patch.data = *p;
+        m_patch = *p;
 
         // Kurven aus den EC-Daten fitten
-        m_curves[0].fitFromCurve(m_patch.data.C1EC);
-        m_curves[1].fitFromCurve(m_patch.data.C2EC);
-        m_curves[2].fitFromCurve(m_patch.data.M1EC);
-        m_curves[3].fitFromCurve(m_patch.data.M2EC);
+        m_curves[0].fitFromCurve(m_patch.C1EC);
+        m_curves[1].fitFromCurve(m_patch.C2EC);
+        m_curves[2].fitFromCurve(m_patch.M1EC);
+        m_curves[3].fitFromCurve(m_patch.M2EC);
 
         m_selectedBreakpoint = 0;
         m_modified = false;
@@ -596,10 +653,10 @@ void CTui::loadFactoryPatch(int index) {
 }
 
 void CTui::rebuildCurvesFromPatch() {
-    m_curves[0].fitFromCurve(m_patch.data.C1EC);
-    m_curves[1].fitFromCurve(m_patch.data.C2EC);
-    m_curves[2].fitFromCurve(m_patch.data.M1EC);
-    m_curves[3].fitFromCurve(m_patch.data.M2EC);
+    m_curves[0].fitFromCurve(m_patch.C1EC);
+    m_curves[1].fitFromCurve(m_patch.C2EC);
+    m_curves[2].fitFromCurve(m_patch.M1EC);
+    m_curves[3].fitFromCurve(m_patch.M2EC);
     m_selectedBreakpoint = 0;
 }
 
@@ -613,7 +670,7 @@ void CTui::savePatch() {
 
     // Dateiname zusammenbauen
     char filename[256];
-    std::snprintf(filename, sizeof(filename), "%s.syx", m_patch.name);
+    std::snprintf(filename, sizeof(filename), "%s.syx", m_patch.Name);
 
     // Blocking-Modus für Texteingabe
     nodelay(stdscr, FALSE);
@@ -663,7 +720,7 @@ void CTui::loadPatch() {
         return;
     }
 
-    PatchFile loaded;
+    PatchConsts loaded;
     if (CSysEx::loadFromFile(input, loaded)) {
         m_patch = loaded;
         rebuildCurvesFromPatch();

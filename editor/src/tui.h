@@ -50,6 +50,16 @@ enum class OperatorParam {
     Detune,
     ATE,
     DTE,
+    RTE,
+    IL,
+    SL,
+    COUNT
+};
+
+enum class GlobalParam {
+    DTE1Scaling,
+    FMmode1,
+    FMmode2,
     COUNT
 };
 
@@ -66,7 +76,7 @@ private:
     CAudioEngine& m_audio;
 
     // Editierbarer Patch
-    PatchFile m_patch;
+    PatchConsts m_patch;
     CCurveGenerator m_curves[4]; // C1, C2, M1, M2
 
     // UI-State

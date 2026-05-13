@@ -1,6 +1,11 @@
 #include "SDL.h"
 #include <portmidi.h>
+#include <termios.h>
+#include <unistd.h>
 #include <cmath>
+#include <thread>
+#include <atomic>
+#include <iostream>
 #include "gs1emu.h"
 
 #define SAMPLE_RATE 34687
@@ -16,6 +21,27 @@ static SDL_AudioDeviceID sdl_audio;
 CGS1Emu* gs1emu = nullptr;
 float sampleBufferL[512];
 float sampleBufferR[512];
+
+std::atomic<char> lastKey = 0;
+
+char getch() {
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    char c = getchar();
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return c;
+}
+
+void inputThreadFunc() {
+    while (true) {
+        char c = getch();
+        lastKey = c;
+        if (c == 'q') break; // optional: Thread beenden bei 'q'
+    }
+}
 
 // Wandelt float [-1..1] nach int16_t [-32767..32767]
 inline int16_t floatToInt16(float val) {
@@ -164,7 +190,7 @@ int main() {
 
   gs1emu = new CGS1Emu();
   gs1emu->Initialize();
-  gs1emu->setCurrentProgram(0);
+  gs1emu->setCurrentProgram(2);
 
   
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
@@ -186,10 +212,13 @@ int main() {
     fflush(stderr);
   }
 
+  std::thread inputThread(inputThreadFunc);
 
-  // Load initial sound
+  printf("Press '+' or '-' to change patch, 'q' to quit.\n");
 
   bool quit_requested = false;
+  bool ensemble=false;
+
   while (!quit_requested) {
     MIDI_Update();
 
@@ -201,7 +230,33 @@ int main() {
         break;
       }
     }
+
+    char c = lastKey.exchange(0); // holt und löscht das letzte Zeichen
+    if (c == '+') {
+        int prog = (gs1emu->getCurrentProgram() + 1) % gs1emu->getNumPrograms();
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setCurrentProgram(prog);
+        SDL_UnlockAudioDevice(sdl_audio);
+        std::cout << "Patch: " << prog << std::endl;
+    } else if (c == '-') {
+        int prog = gs1emu->getCurrentProgram() - 1;
+        if (prog < 0) prog = gs1emu->getNumPrograms() - 1;
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setCurrentProgram(prog);
+        SDL_UnlockAudioDevice(sdl_audio);
+        std::cout << "Patch: " << prog << std::endl;
+    } else if (c == 'e') {
+        gs1emu->setEnsembleOn(!ensemble);
+        ensemble = gs1emu->getEnsembleOn();
+        printf("Ensemble = %d\n", ensemble);
+    } else if (c == 'q') {
+        quit_requested = true;
+        break;
+    }
+    
   }
+
+  inputThread.join(); // wartet auf Eingabe-Thread
 
   MCU_CloseAudio();
   MIDI_Quit();

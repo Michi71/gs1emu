@@ -168,148 +168,129 @@ const PatchConsts gs1_HarpsichordIII = {
 
 
 // --- (3) A-4  Clavichord II ---
-// Weicher als Cembalo. Helligkeit und Lautstärke variieren mit Anschlagsgeschwindigkeit.
-// C2 eine Oktave höher (Ratio=2), Modulatoren mittlere Ratios.
+// Abgeleitet aus KaoX "KY GS1 Clavichord II NU" von Nori Ubukata.
+// KaoX-Routing: OP2->OP1(0.85), OP4->OP3(0.365), OP4->OP2(0.365 Cross!)
+// Cross-Modulation M2->M1 erzeugt den typischen Clavichord-Buzz.
 const PatchConsts gs1_ClavichordII = {
-    // -------------------------
-    // 1) Ratios (C1, C2, M1, M2)
-    // -------------------------
-    // Clavichord = weicher, weniger Obertöne als Harpsichord
-    // C2 = 2.0 → Oktave
-    // M1 = 6.0 → moderater Attack
-    // M2 = 4.0 → wärmer, weniger metallisch
-    {1.0f, 2.0f, 6.0f, 4.0f},
+    // Ratios: C1=1x(Grund), C2=1x(Grund), M1=3x, M2=4x
+    // KaoX: OP1=0.5(1x), OP3=0.6(2x), OP2=0.65(3x), OP4=0.725(4x)
+    // C2 auf 1x reduziert (statt KaoX 2x) — CROSSMOD braucht Headroom
+    {1.0f, 1.0f, 3.0f, 4.0f},
 
-    // -------------------------
-    // 2) Detune (C1, C2, M1, M2)
-    // -------------------------
-    // Leichtes Schimmern, aber kein metallischer DX7‑Detune
-    {0, 2, 1, 3},
+    // Detune: KaoX COARSE_TUNE_OSCFM2=0.503 -> leichtes Detune auf Stack 2
+    {0, 3, 0, 0},
 
-    // -------------------------
-    // 3) C1EC — Grundton‑Carrier
-    // -------------------------
-    // Voll über die Tastatur, Clavichord ist nicht hell
-    { 0.0f, 1.0f,
-      1,1,1,1,1,1,1,1,1,1,
-      1,1,1,1,1,1,1,1,1,1,
-      1,1,1,1,1,1,1,1,1,1,
-      1,1,1,1,1,1,1,1,1,1,
-      1,1,1,1 },
+    // C1EC -- Carrier Grundton (KaoX OP1: KEYB_SCALE_ON=0 -> flach)
+    { 0.0f, 0.85f,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
 
-    // -------------------------
-    // 4) C2EC — Oktave‑Carrier
-    // -------------------------
-    // Clavichord verliert im Hochregister deutlich Energie
-    { 0.0f, 0.8f,
-      0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.8,
-      0.8,0.8,0.8,0.8,0.8,0.75,0.7,0.65,0.6,0.55,
-      0.5,0.45,0.4,0.35,0.3,0.25,0.2,0.15,0.1,0.1,
-      0.05,0.05,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // C2EC -- Carrier Oktave (KaoX OP3: KEYB_SCALE_ON=0 -> flach)
+    { 0.0f, 0.80f,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
 
-    // -------------------------
-    // 5) M1EC — Modulator 6× (Attack‑Impuls)
-    // -------------------------
-    // Weicher als Harpsichord, aber klarer Anschlag
-    { 0.0f, 1.0f,
-      0.5,0.6,0.7,0.8,0.9,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,0.95,0.9,0.85,0.8,0.75,0.7,0.65,
-      0.6,0.55,0.5,0.45,0.4,0.35,0.3,0.25,0.2,0.15,
-      0.1,0.1,0.05,0.05,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // M1EC -- Modulator 3x (KaoX OP2: KEYB=0.5=neutral, SCALE_ON=0.75 -> flach!)
+    { 0.0f, 0.60f,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
 
-    // -------------------------
-    // 6) M2EC — Modulator 4× (wärmer)
-    // -------------------------
-    // Weniger Obertöne → typisch Clavichord
-    { 0.0f, 0.9f,
-      0.6,0.7,0.8,0.9,0.9,0.9,0.85,0.8,0.75,0.7,
-      0.65,0.6,0.55,0.5,0.45,0.4,0.35,0.3,0.25,0.2,
-      0.15,0.1,0.1,0.05,0.05,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // M2EC -- Modulator 4x (Mittelwert KaoX OP4 KEYB=0.425 + OP8 KEYB=0.34)
+    // Moderat negatives Keyboard-Scaling: weniger Buzz in hohen Lagen
+    { 0.0f, 0.55f,
+      1.00,0.98,0.95,0.93,0.91,0.89,0.86,0.84,0.82,0.80,0.79,
+      0.77,0.75,0.73,0.71,0.70,0.68,0.67,0.65,0.64,0.62,0.61,
+      0.59,0.58,0.57,0.55,0.54,0.53,0.52,0.51,0.50,0.48,0.47,
+      0.46,0.45,0.44,0.43,0.42,0.42,0.41,0.40,0.39,0.38,0.37 },
 
-    // -------------------------
-    // 7) Envelope Attack Times (ms)
-    // -------------------------
-    // Clavichord = weich, aber perkussiv
-    {2500.0f, 2000.0f, 3000.0f, 2500.0f},
+    // ATE: Alle KaoX-Attacks=0.0 (instant) -> schneller Anschlag
+    {4000.0f, 3500.0f, 4500.0f, 4000.0f},
 
-    // -------------------------
-    // 8) DTE1Scaling (C2‑Decay)
-    // -------------------------
-    // Clavichord verliert oben schnell Energie
-    5.0f
+    // DTE1Scaling
+    4.0f,
+
+    // DTE: KaoX DECAY C1=0.34, C2=0.305, M1=0.36, M2=0.64(langsam!)
+    // M2 zerfaellt langsam -> Buzz bleibt laenger erhalten
+    {5, 6, 4, 2},
+
+    // RTE: KaoX RELEASE alle 0.5 -> moderates Release
+    {60, 60, 60, 60},
+
+    {0, 0, 0, 0},             // IL
+    {0, 0, 0, 0},             // SL
+    {3, 0},                   // FMmode: Stack1=CROSSMOD (M2->M1 Buzz!), Stack2=NORM
+    "Clavichord II"
 };
 
 // --- (4) B-1  Vibraphone ---
 // Glocken-Mallet-Klang. Inharmonische Ratio (C2=3.5, M2=3.5) erzeugt
 // den metallischen Schimmer. Langsamer Sustain, Vibrato-Pedal.
 const PatchConsts gs1_Vibraphone = {
-    // ---------------------------------------------------------
-    // 1) Ratios (leicht harmonischer → weniger Drift)
-    // ---------------------------------------------------------
-    {1.0f, 2.2f, 5.2f, 8.0f},
+    // ============================================================
+    // Abgeleitet aus KaoX "PC GS1 Vibraphones NU" von Nori Ubukata
+    // KaoX nutzt 8 Ops (2x4), wir mappen die Primaerpaare:
+    //   C1=OP1, M1=OP2, C2=OP5, M2=OP6
+    // KaoX OP4/OP8 (Self-Feedback-Modulatoren) haben kein Aequivalent.
+    // ============================================================
 
-    // ---------------------------------------------------------
-    // 2) Detune (stark reduziert → stabiler Bassbereich)
-    // ---------------------------------------------------------
-    {0, 8, -6, 4},
+    // Ratios: Carrier=1x, Modulator=4x (KaoX FREQ_RATIO 0.725 -> 4. Harmonische)
+    {1.0f, 1.0f, 8.0f, 8.0f},
 
-    // ---------------------------------------------------------
-    // 3) C1EC — Grundton
-    // ---------------------------------------------------------
-    { 0.0f, 0.6f,
-      1.0,1.0,1.0,1.0,0.95,0.95,0.9,0.9,
-      0.85,0.85,0.8,0.8,0.75,0.75,0.7,0.7,
-      0.65,0.65,0.6,0.6,0.55,0.55,0.5,0.5,
-      0.45,0.45,0.4,0.4,0.3,0.3,0.2,0.2,
-      0.15,0.15,0.1,0.1,0.07,0.07,0.05,0.05,
-      0.03,0.03,0.01,0.01 },
+    // Detune: KaoX hat nahezu 0 -- nur OP6 hat 0.5075 (~1 cent)
+    {0, 0, 10, 10},
 
-    // ---------------------------------------------------------
-    // 4) C2EC — zweite Metallmode
-    // ---------------------------------------------------------
-    { 0.0f, 0.5f,
-      0.9,0.9,0.85,0.85,0.8,0.8,0.75,0.75,
-      0.7,0.7,0.65,0.65,0.6,0.6,0.55,0.55,
-      0.5,0.5,0.45,0.45,0.4,0.4,0.35,0.35,
-      0.3,0.3,0.25,0.25,0.2,0.2,0.15,0.15,
-      0.1,0.1,0.08,0.08,0.06,0.06,0.04,0.04,
-      0.03,0.03,0.02,0.02 },
+    // C1EC -- Carrier Stack 1 (KaoX OP1: KEYB_SCALE_ON=0 -> flach)
+    { 0.0f, 0.95f,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
 
-    // ---------------------------------------------------------
-    // 5) M1EC — Sustain-Metall
-    // ---------------------------------------------------------
-    { 0.0f, 0.5f,
-      0.9,0.9,0.9,0.9,0.9,0.9,0.85,0.85,
-      0.8,0.8,0.75,0.75,0.7,0.7,0.6,0.6,
-      0.5,0.5,0.4,0.4,0.3,0.3,0.2,0.2,
-      0.15,0.15,0.1,0.1,0.08,0.08,0.05,0.05,
-      0.03,0.03,0.02,0.02,0.01,0.01,
-      0.01,0.01,0.01,0.01 },
+    // C2EC -- Carrier Stack 2 (KaoX OP5: KEYB_SCALE_ON=0 -> flach)
+    { 0.0f, 0.95f,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+      1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 },
 
-    // ---------------------------------------------------------
-    // 6) M2EC — Attack-Metall (kürzer → stabiler Bass)
-    // ---------------------------------------------------------
-    { 0.2f, 0.8f,
-      1.0,1.0,0.9,0.9,0.8,0.8,0.7,0.7,
-      0.6,0.6,0.5,0.5,0.3,0.3,0.2,0.2,
-      0.1,0.1,0.05,0.05,0.02,0.02,0.01,0.01,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0 },
+    // M1EC -- Modulator Stack 1 (KaoX OP2: KEYB=0.245, SCALE_ON=0.75)
+    // Starkes negatives Keyboard-Scaling: Modulation faellt nach oben ab
+    { 0.0f, 0.85f,
+      1.0, 1.0, 1.0, 0.98,0.95,0.92,0.88,0.84,0.80,0.75,0.70,0.65,
+      0.60,0.55,0.50,0.45,0.40,0.36,0.32,0.28,0.25,0.22,0.20,0.18,
+      0.16,0.14,0.13,0.12,0.11,0.10,0.10,0.09,0.09,0.08,0.08,0.08,
+      0.07,0.07,0.07,0.07,0.07,0.07,0.07,0.07 },
 
-    // ---------------------------------------------------------
-    // 7) Envelope Attack Times
-    // ---------------------------------------------------------
-    {2600.0f, 2200.0f, 3000.0f, 3500.0f},
+    // M2EC -- Modulator Stack 2 (KaoX OP6: KEYB=0.245, SCALE_ON=0.75)
+    { 0.0f, 0.85f,
+      1.0, 1.0, 1.0, 0.98,0.95,0.92,0.88,0.84,0.80,0.75,0.70,0.65,
+      0.60,0.55,0.50,0.45,0.40,0.36,0.32,0.28,0.25,0.22,0.20,0.18,
+      0.16,0.14,0.13,0.12,0.11,0.10,0.10,0.09,0.09,0.08,0.08,0.08,
+      0.07,0.07,0.07,0.07,0.07,0.07,0.07,0.07 },
 
-    // ---------------------------------------------------------
-    // 8) DTE1Scaling
-    // ---------------------------------------------------------
-    18.0f
+    // ATE: Alle KaoX-Attacks=0.0 (instant) -> sehr schnell
+    {3500.0f, 3000.0f, 4000.0f, 4000.0f},
+
+    // DTE1Scaling
+    3.5f,
+
+    // DTE: Aus KaoX DECAY (OP1=0.25, OP2=0.345, OP5=0.345, OP6=0.395)
+    {6, 4, 4, 3},
+
+    // RTE: Aus KaoX RELEASE (OP1=0.41, OP2=0.585, OP5=0.435, OP6=0.585)
+    {50, 60, 50, 60},
+
+    {0, 0, 0, 0},             // IL
+    {0, 0, 0, 0},             // SL
+    {3, 0},                   // FMmode: NORM/NORM
+    "Vibraphone"
 };
-
 
 // --- (5) B-2  Celeste ---
 // Süßer Glockenklang, obere Oktaven. C2/M2 bei Ratio 5/5.5 → spezifischer
@@ -411,7 +392,7 @@ const PatchConsts gs1_AcousticPianoI = {
     // M2=6× (statt 8×) reduziert die obertonreiche Helligkeit deutlich.
     // Kombiniert mit erhöhter M2-Detune simuliert das den "wood-hammer"
     // Charakter ähnlich OP4+OP5+OP6 Self-Feedback im DX7-Original.
-    {1.0f, 2.0f, 1.0f, 6.0f},
+    {1.0f, 2.0f, 1.0f, 4.0f},
 
     // ---------------------------------------------------------
     // 2) Detune (C1, C2, M1, M2) — cents
@@ -419,7 +400,7 @@ const PatchConsts gs1_AcousticPianoI = {
     // M2-Detune erhöht (3 → 9) für mehr Inharmonik im Attack — ersetzt
     // teilweise die OP5+OP6 Self-FB Modulation aus dem DX7-Original und
     // macht den Anschlag perkussiver/holziger statt orgelartig.
-    {0, 4, 0, 9},
+    {0, 4, 0, 14},
 
     // ---------------------------------------------------------
     // 3) C1EC — Body-Carrier (DX7 OP1: lvl 99, KVS=0, kein Keyboard-Scaling)
@@ -538,7 +519,7 @@ const PatchConsts gs1_AcousticPianoI = {
     // Das ist die realistische Klavier-Hammer-Decay-Charakteristik: nach
     // <500ms ist der Modulator weg, übrig bleibt der saubere Carrier-Klang.
     // Endlich ECHTER Hammer-Bite statt "Orgel im Attack".
-    {2.0f, 2.0f, 1.5f, 60.0f}
+    {2, 2, 1, 60}
 };
 
 
@@ -552,13 +533,15 @@ const PatchConsts gs1_ElectricPianoI = {
     // GS1-EP: zwei Grundton-Carrier + zwei Modulatoren
     // M1 = 1× → weicher Body
     // M2 = 7× → Tine-Glanz, aber nicht DX7-scharf
-    {1.0f, 1.0f, 1.0f, 7.0f},
+    //{1.0f, 1.0f, 1.0f, 7.0f},
+    {1.0f, 1.0f, 1.0f, 1.0f},
 
     // ---------------------------------------------------------
     // 2) Detune
     // ---------------------------------------------------------
     // Leichtes Schimmern, aber kein Rhodes-Chorus
-    {0, 8, 2, 10},
+    //{0, 8, 2, 10},
+    {0, 12, 3, 12},
 
     // ---------------------------------------------------------
     // 3) C1EC — Grundtonträger
@@ -613,7 +596,13 @@ const PatchConsts gs1_ElectricPianoI = {
     // ---------------------------------------------------------
     // 8) DTE1Scaling
     // ---------------------------------------------------------
-    3.0f
+    3.0f,
+
+    {2, 2, 1, 1},       // DTE: Perkussives Ausklingen
+    {250, 250, 250, 250}, // RTE: Schnelles Release (typisch E-Piano)
+    {0, 0, 0, 0},       // IL
+    {0, 0, 0, 0},       // SL: Piano-Modus (klingt immer aus)
+    {0, 0}              // FMmode: Beides NORM (keine Crossmod, kein Feedback)
 };
 
 

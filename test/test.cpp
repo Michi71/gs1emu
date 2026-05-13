@@ -116,11 +116,16 @@ void runMIDI() {
 
 void updateMIDI() {
     PmEvent event;
-    while (Pm_Read(midiInStream, &event, 1) > 0) {
+    uint8_t data[3];
+    while (Pm_Read(midiInStream, &event, 1)) {
         std::lock_guard<std::mutex> lock(synthMutex);
-        synth->sendMidiCmd(Pm_MessageStatus(event.message),
-                           Pm_MessageData1(event.message),
-                           Pm_MessageData2(event.message));
+        data[0] = Pm_MessageStatus(event.message);
+        data[1] = Pm_MessageData1(event.message);
+        data[2] = Pm_MessageData2(event.message);
+        gs1emu->processMidi(&data[0], 3);
+
+        //printf("MIDI: %02X %02X %02X\n", Pm_MessageStatus(event.message),
+        //       Pm_MessageData1(event.message), Pm_MessageData2(event.message));
     }
 }
 
@@ -128,17 +133,16 @@ int main() {
     // Init GS1Emu
     gs1emu = new CGS1Emu();
     gs1emu->Initialize();
-    gs1emu->setCurrentProgram(0);
 
     std::cout << "GS1 Emu initialized\n";
     
     Boolean quit=false;
+    Boolean ensemble=false;
     char buf[128];
     char name[128];
     int instrument=0;
-    int max_instrument = synth->getInstrumentCount();
 
-    synth->setInstrument(0);
+    gs1emu->setCurrentProgram(0);
 
     if (!initAudio(SAMPLE_RATE)) {
         fprintf(stderr, "Audio init failed.\n");
@@ -157,25 +161,22 @@ int main() {
 
         char c = lastKey.exchange(0); // holt und löscht das letzte Zeichen
         if (c == '+') {
-            int prog = (synth->getInstrument() + 1) % synth->getInstrumentCount();
+            int prog = (gs1emu->getCurrentProgram() + 1) % gs1emu->getNumPrograms();
             std::lock_guard<std::mutex> lock(synthMutex);
-            synth->setInstrument(prog);
-            synth->getInstrumentName(buf);
-            std::cout << "Instrument: " << prog << ": " << buf << std::endl;
+            gs1emu->setCurrentProgram(prog);
+            //gs1emu->getInstrumentName(buf);
+            std::cout << "Patch: " << prog << std::endl;
         } else if (c == '-') {
-            int prog = synth->getInstrument() - 1;
-            if (prog < 0) prog = synth->getInstrumentCount() - 1;
+            int prog = gs1emu->getCurrentProgram() - 1;
+            if (prog < 0) prog = gs1emu->getNumPrograms() - 1;
             std::lock_guard<std::mutex> lock(synthMutex);
-            synth->setInstrument(prog);
-            synth->getInstrumentName(buf);
-            std::cout << "Instrument: " << prog << ": " << buf << std::endl;
-        } else if (c == 'p') {
-            int preset = synth->getCurrentPresetIndex();
-            std::lock_guard<std::mutex> lock(synthMutex);
-            if (preset + 1 < synth->getNumPresets()) synth->loadPreset(preset + 1);
-             else synth->loadPreset(0);
-            preset = synth->getCurrentPresetIndex();
-            printf("Preset = %d\n", preset);
+            gs1emu->setCurrentProgram(prog);
+            //gs1emu->getInstrumentName(buf);
+            std::cout << "Patch: " << prog << std::endl;
+        } else if (c == 'e') {
+            gs1emu->setEnsembleOn(!ensemble);
+            ensemble = gs1emu->getEnsembleOn();
+            printf("Ensemble = %d\n", ensemble);
         } else if (c == 'q') {
             quit = true;
         }
@@ -193,6 +194,6 @@ int main() {
     AudioUnitUninitialize(audioUnit);
     AudioComponentInstanceDispose(audioUnit);
     Pm_Terminate();
-    delete synth;
+    delete gs1emu;
     return 0;
 }
