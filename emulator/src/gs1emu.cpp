@@ -48,6 +48,38 @@ static int lookupExp(int val) {
   return result >> 4;
 }
 
+int CGS1Emu::findVoice()
+{
+    // 1. Stille Stimme (vollständig inaktiv)
+    for (int v = 0; v < MAXVOICES; ++v) {
+        VoiceState& vs = voiceStates[v];
+        if (!vs.noteOn && vs.EA[0] == 0 && vs.EA[1] == 0 && vs.EA[2] == 0 && vs.EA[3] == 0)
+            return v;
+    }
+    // 2. Leiseste Stimme im Release (GATE == 0)
+    int bestRelease = -1;
+    int32_t lowestEnergy = INT32_MAX;
+    for (int v = 0; v < MAXVOICES; ++v) {
+        VoiceState& vs = voiceStates[v];
+        if (!vs.noteOn && !vs.sustaining) {
+            int32_t energy = vs.EA[0] + vs.EA[1] + vs.EA[2] + vs.EA[3];
+            if (energy < lowestEnergy) {
+                lowestEnergy = energy;
+                bestRelease = v;
+            }
+        }
+    }
+    if (bestRelease >= 0)
+        return bestRelease;
+    // 3. Älteste aktive Stimme stehlen
+    int oldest = 0;
+    for (int v = 1; v < MAXVOICES; ++v) {
+        if (voiceStates[v].noteAge < voiceStates[oldest].noteAge)
+            oldest = v;
+    }
+    return oldest;
+}
+
 int CGS1Emu::getNumPrograms() { return 16; }
 
 int CGS1Emu::getCurrentProgram() { return currentPatch; }
@@ -219,7 +251,6 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
       if (voiceState.GATE == 0 && voiceState.GATEOLD == 1) {
         voiceState.RS[e] = voiceState.EA[e];
         voiceState.RSx[e] = voiceState.EAx[e];
-        voiceState.RT[e] = voiceState.RT[e];
       }
       if (voiceState.GATE == 0 && voiceState.EA[e] > 0) {
         voiceState.EA[e] = voiceState.EA[e] - voiceState.RT[e];
@@ -467,8 +498,7 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
 }
 
 CGS1Emu::CGS1Emu()
-    : lastVoice(0),
-      currentPatch(0),
+    : currentPatch(0),
       sampleRate(SampleRate),
       delayA(),
       delayB(),
@@ -518,14 +548,15 @@ void CGS1Emu::processMidi(uint8_t* data, int size)
             uint8_t velocity = data[i + 2];
             if (velocity > 0)
             {
-                noteOn(voiceStates[lastVoice], note - 24, 127 - velocity);
-                lastVoice = (lastVoice + 1) % MAXVOICES;
+                int v = findVoice();
+                voiceStates[v].noteAge = ++voiceCounter;
+                noteOn(voiceStates[v], note - 20, 127 - velocity);
             }
             else
             {
                 for (int v = 0; v < MAXVOICES; ++v)
                 {
-                    if (voiceStates[v].midiNote == note - 24)
+                    if (voiceStates[v].midiNote == note - 20)
                     {
                         if (!voiceStates[v].sustaining)
                             voiceStates[v].GATENEW = 0;
@@ -540,7 +571,7 @@ void CGS1Emu::processMidi(uint8_t* data, int size)
             uint8_t note = data[i + 1];
             for (int v = 0; v < MAXVOICES; ++v)
             {
-                if (voiceStates[v].midiNote == note - 24)
+                if (voiceStates[v].midiNote == note - 20)
                 {
                     if (!voiceStates[v].sustaining)
                         voiceStates[v].GATENEW = 0;
@@ -557,9 +588,9 @@ void CGS1Emu::processMidi(uint8_t* data, int size)
                 bool sustainOn = (value >= 64);
                 for (int v = 0; v < MAXVOICES; ++v)
                 {
-                    if (sustainOn)
+                    if (sustainOn && voiceStates[v].noteOn)
                         voiceStates[v].sustaining = true;
-                    else if (!voiceStates[v].noteOn)
+                    else if (!sustainOn && !voiceStates[v].noteOn)
                     {
                         voiceStates[v].GATENEW = 0;
                         voiceStates[v].sustaining = false;

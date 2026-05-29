@@ -873,231 +873,169 @@ const PatchConsts gs1_StringEnsembleI = {
 
 
 // --- (11) E-1  Brass I ---
-// Hornartiger Blechbläser. PI/2-Selbst-Feedback auf Stack 1 erzeugt
-// den charakteristischen FM-Brass-Buzz. Modulatoren decayen schnell auf
-// ein warmes Sustain-Level → typische Brightness-Hüllkurve.
+// Hornartiger Blechbläser (French Horn / Brass Section).
+// PI/2 Self-Feedback auf Stack 1 erzeugt den typischen FM-Brass-Buzz.
+// Brightness-Hüllkurve: Modulatoren decayen von hellem Anschlag auf
+// ein warmes Sustain-Level (SL niedrig). Carrier bleiben konstant (SL hoch).
 const PatchConsts gs1_BrassI = {
-    // ---------------------------------------------------------
-    // 1) Ratios (C1, C2, M1, M2)
-    // ---------------------------------------------------------
-    // M1 = 1× Grundton-Buzz (PI/2-Feedback Stack 1)
-    // M2 = 1× zweite Schicht, leicht verstimmt (Stack 2)
+    // Ratios: beide Stacks 1:1 → Grundton-Modulation (kein Inharmonik)
     {1.0f, 1.0f, 1.0f, 1.0f},
 
-    // ---------------------------------------------------------
-    // 2) Detune (cents)
-    // ---------------------------------------------------------
-    // Empirisch ermittelte Detune-Werte (Editor-Tweak)
-    {0, 10, -3, 3},
+    // Leichtes Detune für lebendigen Ensemble-Sound
+    {0, 8, -2, 5},
 
-    // ---------------------------------------------------------
-    // 3) C1EC — Grundtonträger
-    // ---------------------------------------------------------
+    // C1EC — Carrier Stack 1: voll und gleichmäßig
     { 0.0f, 1.0f,
-      0.6,0.7,0.8,0.9,1.0,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,0.9,0.8,0.7,0.5,0.3,0.2,0.1,
-      0.05,0.0,0.0,0.0 },
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,0.9,0.7,0.5,0.3,
+      0.15,0.05,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 4) C2EC — zweiter Carrier-Layer
-    // ---------------------------------------------------------
-    { 0.0f, 0.95f,
-      0.5,0.6,0.7,0.8,0.9,0.95,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.9,0.85,0.8,0.7,0.6,0.5,0.4,
-      0.3,0.2,0.1,0.05,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // C2EC — Carrier Stack 2: leicht leiser
+    { 0.0f, 0.92f,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.8,0.6,0.4,0.2,
+      0.1,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 5) M1EC — Modulator Stack 1 (1×, PI/2 Feedback)
-    // ---------------------------------------------------------
-    // Referenz 0.9 → starker FM-Index für Brass-Brillanz (DX7 OP6: OL=82/99)
+    // M1EC — Modulator Stack 1 (PI/2 Feedback): hoch für Brass-Brillanz
+    // Flat über die gesamte Tastatur — Brass ändert nicht den Charakter mit der Höhe
     { 0.0f, 0.90f,
-      0.6,0.7,0.8,0.85,0.9,0.9,0.9,0.9,0.9,0.9,
-      0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.85,0.8,0.75,
-      0.7,0.6,0.5,0.4,0.3,0.2,0.1,0.05,0.0,0.0,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,0.9,0.7,0.5,0.3,
+      0.1,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 6) M2EC — Modulator Stack 2 (1×, PI/2 Feedback)
-    // ---------------------------------------------------------
-    { 0.0f, 0.85f,
-      0.5,0.6,0.7,0.8,0.85,0.85,0.85,0.85,0.85,0.85,
-      0.85,0.85,0.85,0.85,0.85,0.85,0.8,0.75,0.7,0.6,
-      0.5,0.4,0.3,0.2,0.1,0.05,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // M2EC — Modulator Stack 2 (NORM): etwas weniger FM für wärmeren Body
+    { 0.0f, 0.80f,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.8,0.6,0.4,0.2,
+      0.1,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 7) Envelope Attack Times
-    // ---------------------------------------------------------
-    {4500.0f, 4000.0f, 5200.0f, 4800.0f},
+    // ATE: Modulatoren sofort (FM-Index gleich hoch) → Carrier langsam (Horn-Swell ~12ms)
+    {1200.0f, 1200.0f, 30000.0f, 25000.0f},
 
-    // ---------------------------------------------------------
-    // 8) DTE1Scaling
-    // ---------------------------------------------------------
-    // DTE1Scaling=4 → C2 decayt bei hohen Noten 4× schneller
-    // (akustisches Brass-Verhalten: hohe Töne klingen kürzer)
-    4.0f,
-    {3, 3, 1, 1},               // DTE: Carrier subtil, Modulatoren nur leichtes Decay fuer anhaltenden Brass-Buzz
-    {80, 80, 70, 70},           // RTE
-    {0, 0, 0, 0},               // IL
-    {240, 240, 220, 210},       // SL: Carrier hoch, Modulatoren moderat hoch fuer durchgehendes 'Blasen'
-    {2, 3},                     // FMmode: PI + CROSS fuer raues trompetenartiges Spektrum
+    2.0f,                           // DTE1Scaling
+    {1, 1, 8, 6},                   // DTE: Carrier konstant, Modulatoren decay in ~1.5s
+    {80, 80, 70, 70},               // RTE
+    {0, 0, 0, 0},                   // IL
+    {252, 252, 175, 170},           // SL: Carrier voll, Modulatoren auf warmes Sustain
+    {1, 0},                         // FMmode: PI/2 (Stack 1 Buzz) + NORM (Stack 2 Body)
     "Brass I"
 };
 
 
 // --- (12) E-2  Brass II ---
-// Trompeten-artiger Bläser, heller als Brass I. M1=2x/M2=3x geben
-// mehr Obertöne. PI/2-Feedback + schneller Modulator-Decay = FM-Trumpet.
+// Trompete. PI/2 auf beiden Stacks → heller, schneidender FM-Buzz.
+// Modulatoren decayen schnell auf niedrigeres SL → klassische Trompeten-
+// Brightness-Hüllkurve (schrill im Attack, wärmer im Sustain).
 const PatchConsts gs1_BrassII = {
-    // ---------------------------------------------------------
-    // 1) Ratios (C1, C2, M1, M2)
-    // ---------------------------------------------------------
-    // M1 = 1× Trumpet-Grundcharakter (PI/2 Feedback)
-    // M2 = 1× zweite Schicht NORM mode (kein Self-Feedback)
     {1.0f, 1.0f, 1.0f, 1.0f},
 
-    // ---------------------------------------------------------
-    // 2) Detune (cents)
-    // ---------------------------------------------------------
-    // Wie Brass I, aber leicht anders gewichtet
-    {0, 12, -4, 5},
+    // Leichtes Ensemble-Detune
+    {0, 10, -3, 6},
 
-    // ---------------------------------------------------------
-    // 3) C1EC — Grundtonträger
-    // ---------------------------------------------------------
+    // C1EC — Carrier Stack 1: voll
     { 0.0f, 1.0f,
-      0.5,0.6,0.7,0.8,0.9,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,0.9,0.8,0.6,0.4,0.2,0.1,0.05,0.0,
-      0.0,0.0,0.0,0.0 },
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,0.9,0.7,0.4,0.2,
+      0.1,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 4) C2EC — heller Layer
-    // ---------------------------------------------------------
+    // C2EC — Carrier Stack 2
     { 0.0f, 0.95f,
-      0.4,0.5,0.6,0.7,0.8,0.9,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.9,0.85,0.8,0.7,0.6,0.5,0.4,
-      0.3,0.2,0.1,0.05,0.0,0.0,0.0,0.0,0.0,0.0,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.8,0.6,0.3,0.1,
       0.0,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 5) M1EC — Trumpet Stack 1 (1×, PI/2 Feedback)
-    // ---------------------------------------------------------
-    // Höherer FM-Index für hellen Trompeten-Charakter
+    // M1EC — hoher FM-Index für Trompeten-Brillanz
     { 0.0f, 0.95f,
-      0.6,0.7,0.8,0.9,0.95,0.95,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.95,0.95,0.95,0.9,0.85,0.8,0.7,
-      0.6,0.5,0.4,0.3,0.2,0.1,0.05,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,0.9,0.7,0.4,0.2,
+      0.05,0.0,0.0,0.0 },
+
+    // M2EC — etwas weniger
+    { 0.0f, 0.88f,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.8,0.6,0.3,0.1,
       0.0,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 6) M2EC — Trumpet Stack 2 (1×, NORM mode)
-    // ---------------------------------------------------------
-    { 0.0f, 0.85f,
-      0.5,0.6,0.7,0.8,0.85,0.85,0.85,0.85,0.85,0.85,
-      0.85,0.85,0.85,0.85,0.85,0.8,0.75,0.7,0.6,0.5,
-      0.4,0.3,0.2,0.1,0.05,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // ATE: Modulatoren sofort, Carrier schnell (~4ms Punch)
+    {3500.0f, 3000.0f, 30000.0f, 28000.0f},
 
-    // ---------------------------------------------------------
-    // 7) Envelope Attack Times
-    // ---------------------------------------------------------
-    // Carrier SEHR schnell (Trompeten-Punch), Mod moderat
-    {25000.0f, 20000.0f, 2500.0f, 2200.0f},
-
-    // ---------------------------------------------------------
-    // 8) DTE1Scaling
-    // ---------------------------------------------------------
-    4.0f,
-    {3, 3, 0, 0},               // DTE: Carrier subtil, Modulatoren konstant
-    {120, 100, 70, 70},         // RTE: Carrier schneller Release als Mod
-    {0, 0, 0, 0},               // IL
-    {240, 240, 230, 225},       // SL: HOHER Sustain - FM-Index bleibt durchgehend
-    {2, 3},                     // FMmode: PI (volles Self-FB) + CROSS (M1->M2)
+    2.5f,                           // DTE1Scaling
+    {1, 1, 12, 10},                 // DTE: Carrier konstant, Modulatoren decay in ~1s
+    {100, 90, 80, 80},              // RTE
+    {0, 0, 0, 0},                   // IL
+    {252, 252, 185, 180},           // SL: Carrier voll, Modulatoren auf mittleres Sustain
+    {1, 1},                         // FMmode: PI/2 auf beiden Stacks → heller Trompeten-Buzz
     "Brass II"
 };
 
 
 // --- (13) E-6  Synth Brass III ---
-// Synthetischer Brass mit breitem Detune. Beide Stacks mit PI/2-Feedback
-// fuer maximalen Synth-Charakter. Modulatoren decayen schnell.
+// Breiter Synth-Brass à la Jupiter/JX. PI/2 auf beiden Stacks.
+// Mehr Detune als Brass I+II für den typischen Ensemble-Synth-Charakter.
+// Schnellerer Brightness-Decay → punchiger, synthetischer.
 const PatchConsts gs1_SynthBrassIII = {
-    // ---------------------------------------------------------
-    // 1) Ratios (C1, C2, M1, M2)
-    // ---------------------------------------------------------
-    // M1 = 1×, M2 = 1× → synth character durch breites Detune + PI/2 beider Stacks
     {1.0f, 1.0f, 1.0f, 1.0f},
 
-    // ---------------------------------------------------------
-    // 2) Detune (cents)
-    // ---------------------------------------------------------
-    // Sehr breites Detune für Synth-Ensemble-Charakter
-    {0, 15, 8, -12},
+    // Breites Detune: Ensemble-Synth-Charakter
+    {0, 20, 10, -14},
 
-    // ---------------------------------------------------------
-    // 3) C1EC — Grundtonträger
-    // ---------------------------------------------------------
+    // C1EC — Carrier Stack 1
     { 0.0f, 1.0f,
-      0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,
-      1.0,1.0,0.9,0.8,0.7,0.5,0.3,0.2,0.1,0.05,
-      0.0,0.0,0.0,0.0 },
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,0.9,0.7,0.4,0.2,
+      0.1,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 4) C2EC
-    // ---------------------------------------------------------
+    // C2EC — Carrier Stack 2
     { 0.0f, 0.95f,
-      0.4,0.5,0.6,0.7,0.8,0.9,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.95,0.95,0.9,0.85,0.8,0.7,0.6,
-      0.4,0.3,0.2,0.1,0.05,0.0,0.0,0.0,0.0,0.0,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.8,0.6,0.3,0.1,
       0.0,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 5) M1EC — Synth-Modulator Stack 1 (1×, PI/2)
-    // ---------------------------------------------------------
-    { 0.0f, 0.95f,
-      0.6,0.7,0.8,0.85,0.9,0.95,0.95,0.95,0.95,0.95,
-      0.95,0.95,0.95,0.95,0.9,0.85,0.8,0.7,0.6,0.5,
-      0.4,0.3,0.2,0.1,0.05,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+    // M1EC — maximaler FM-Index für aggressiven Synth-Attack
+    { 0.0f, 1.0f,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,0.9,0.7,0.4,0.2,
+      0.05,0.0,0.0,0.0 },
+
+    // M2EC
+    { 0.0f, 0.93f,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.8,0.6,0.3,0.1,
       0.0,0.0,0.0,0.0 },
 
-    // ---------------------------------------------------------
-    // 6) M2EC — Synth-Modulator Stack 2 (1×, PI/2)
-    // ---------------------------------------------------------
-    { 0.0f, 0.90f,
-      0.5,0.6,0.7,0.8,0.85,0.9,0.9,0.9,0.9,0.9,
-      0.9,0.9,0.85,0.8,0.75,0.7,0.6,0.5,0.4,0.3,
-      0.2,0.1,0.05,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // ATE: Modulatoren sofort, Carrier leichter Swell (~8ms)
+    {2000.0f, 1800.0f, 28000.0f, 25000.0f},
 
-    // ---------------------------------------------------------
-    // 7) Envelope Attack Times
-    // ---------------------------------------------------------
-    {4000.0f, 3500.0f, 2500.0f, 2200.0f},
-
-    // ---------------------------------------------------------
-    // 8) DTE1Scaling
-    // ---------------------------------------------------------
-    4.0f,
-    {3, 3, 0, 0},               // DTE: Carrier subtil, Modulatoren konstant
-    {100, 80, 70, 70},          // RTE
-    {0, 0, 0, 0},               // IL
-    {240, 240, 230, 225},       // SL: HOHER Sustain - FM-Index bleibt durchgehend
-    {2, 3},                     // FMmode: PI (volles Self-FB) + CROSS (M1->M2)
+    2.5f,                           // DTE1Scaling
+    {1, 1, 15, 12},                 // DTE: Carrier konstant, Modulatoren schnell decay (~0.8s)
+    {90, 80, 75, 75},               // RTE
+    {0, 0, 0, 0},                   // IL
+    {252, 252, 155, 150},           // SL: Carrier voll, Modulatoren niedriger = mehr Brightness-Decay
+    {1, 1},                         // FMmode: PI/2 auf beiden Stacks
     "Synth Brass III"
 };
 
@@ -1263,26 +1201,28 @@ const PatchConsts gs1_ElectronicOrganII = {
 
 
 // --- (16) F-5  Pipe Organ ---
-// Pfeifenorgel. Harmonische Obertonreihe (1:2:4:8). Kein Detune —
-// streng gestimmt. Sofortiger Attack, Lautstärke-Pedal empfohlen.
+// Prinzipal 8' + Oktave 4'. Beide Stacks modulieren die Carrier bei gleicher
+// Frequenz (Ratio 1:1) → FM-Index gibt Pfeifencharakter ohne Dissonanz.
+// Sofort-Attack (Taste→Ton ohne Verzögerung), volles Sustain, kurzes Release.
 const PatchConsts gs1_PipeOrgan = {
     // ---------------------------------------------------------
     // 1) Ratios (C1, C2, M1, M2)
     // ---------------------------------------------------------
-    // Pipe Organ = harmonisch, wie Drawbars 16' + 8' + 4' + 2'
-    // 1×, 2×, 4×, 8×
-    {1.0f, 2.0f, 4.0f, 8.0f},
+    // Stack 1: M1=1× moduliert C1=1×  →  8' Prinzipal
+    // Stack 2: M2=2× moduliert C2=2×  →  4' Oktave
+    // Gleiche Frequenz Modulator/Carrier = pfeifenartiger FM-Charakter
+    {1.0f, 2.0f, 1.0f, 2.0f},
 
     // ---------------------------------------------------------
     // 2) Detune
     // ---------------------------------------------------------
-    // Pipe Organ = absolut sauber gestimmt
-    {0, 0, 0, 0},
+    // Orgelpfeifen sind präzise gestimmt — minimal Schwebung (Winddruckschwankung)
+    {0, 0, 1, -1},
 
     // ---------------------------------------------------------
-    // 3) C1EC — Grundton (16')
+    // 3) C1EC — 8' Prinzipal Carrier
     // ---------------------------------------------------------
-    // Voll, warm, GS1-dumpf
+    // Voll und gleichmäßig über die Tastatur — keine Keyboard-Skalierung
     { 0.0f, 1.0f,
       1,1,1,1,1,1,1,1,1,1,
       1,1,1,1,1,1,1,1,1,1,
@@ -1291,55 +1231,58 @@ const PatchConsts gs1_PipeOrgan = {
       1,1,1,1 },
 
     // ---------------------------------------------------------
-    // 4) C2EC — Oktave (8')
+    // 4) C2EC — 4' Oktave Carrier
     // ---------------------------------------------------------
-    // Heller, aber GS1-typisch abfallend
-    { 0.0f, 0.9f,
-      0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,
-      0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9,
-      0.9,0.9,0.9,0.9,0.9,0.8,0.8,0.7,0.7,0.6,
-      0.5,0.4,0.3,0.2,0.15,0.1,0.05,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
+    // Etwas leiser als 8' — klassisches Register-Mischungsverhältnis
+    { 0.0f, 0.85f,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1 },
 
     // ---------------------------------------------------------
-    // 5) M1EC — 4'-Drawbar-Layer (Modulator 4×)
+    // 5) M1EC — Modulator für 8'-Stack (FM-Index)
     // ---------------------------------------------------------
-    // SEHR niedriger Pegel → leichte 3./5. Harmonische statt FM-Rechteck
-    { 0.0f, 0.35f,
-      0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,
-      0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,
-      0.3,0.3,0.3,0.3,0.25,0.25,0.2,0.2,0.15,0.1,
-      0.1,0.05,0.05,0.02,0.02,0.01,0.0,0.0,0.0,0.0,
-      0.0,0.0,0.0,0.0 },
-
-    // ---------------------------------------------------------
-    // 6) M2EC — 2'-Drawbar-Layer (Modulator 8×)
-    // ---------------------------------------------------------
-    // Noch leiser → nur Hauch obertonigen Schimmer
+    // Moderater Index (~0.35) → Principal-Charakter: leicht obertonreich,
+    // nicht zu flötenartig (→ 0.15) und nicht zu rauschend (→ 0.7).
+    // Im Diskant leicht abfallend — hohe Pfeifen klingen reiner.
     { 0.0f, 0.25f,
-      0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,
-      0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,
-      0.15,0.15,0.1,0.1,0.05,0.05,0.02,0.02,0.01,0.01,
-      0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.8,0.6,0.4,0.2,
+      0.1,0.05,0.0,0.0 },
+
+    // ---------------------------------------------------------
+    // 6) M2EC — Modulator für 4'-Stack (FM-Index)
+    // ---------------------------------------------------------
+    { 0.0f, 0.30f,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,1,1,1,1,1,
+      1,1,1,1,1,0.9,0.7,0.5,0.3,0.1,
       0.0,0.0,0.0,0.0 },
 
     // ---------------------------------------------------------
-    // 7) Envelope Attack Times (ms)
+    // 7) Envelope Attack Times
     // ---------------------------------------------------------
-    // Pipe Organ = sofortiger Attack
-    {10000.0f, 10000.0f, 10000.0f, 10000.0f},
+    // Modulatoren (M1/M2) zuerst auf volle Amplitude → FM-Index steht bereit.
+    // Carrier (C1/C2) etwas langsamer → verhindert Sample-Diskontinuität (Pop).
+    {5000.0f, 5000.0f, 100000.0f, 100000.0f},
 
     // ---------------------------------------------------------
-    // 8) DTE1Scaling
+    // 8) DTE1Scaling & Envelopes
     // ---------------------------------------------------------
     1.0f,
-    {0, 0, 0, 0},               // DTE: KEIN Decay (Orgel hält Pegel)
-    {200, 200, 200, 200},       // RTE
+    {500, 500, 500, 500},       // DTE: schnell auf Sustain-Level
+    {800, 800, 800, 800},       // RTE: ~25ms Release (Orgel stoppt schnell)
     {0, 0, 0, 0},               // IL
-    {255, 255, 255, 255},       // SL: max (unbenutzt bei DTE=0, aber konsistent)
-    {0, 0},                     // FMmode: NORM (kein Feedback → sauberer Orgelton)
+    {240, 240, 240, 240},       // SL: stabiles Sustain bei vollem Pegel
+    {0, 0},                     // FMmode: NORM/NORM
     "Pipe Organ"
 };
+
 
 // E PIANO  (DX7 Alg 5, derived from patchEP1)
 const PatchConsts patchE_PIANO = {

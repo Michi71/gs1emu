@@ -7,7 +7,7 @@
 #include <cmath>
 
 #ifndef MAXVOICES
-#define MAXVOICES 32
+#define MAXVOICES 16
 #endif
 
 struct GS1BiquadFilter {
@@ -90,6 +90,7 @@ struct VoiceState {
   int midiNote = 0;
   bool noteOn = false;
   bool sustaining = false;
+  uint32_t noteAge = 0;
 };
 
 class CGS1Emu {
@@ -114,12 +115,12 @@ public:
 
   const PatchConsts* patches[16];       // GS1 Factory Presets (1)–(16)
   
-  int lastVoice = 0;
   int currentPatch = 0;
   int sampleRate;
 
   void noteOn(VoiceState& voiceState, float KNOTE, float Velocity);
   int fmGenSample(VoiceState& voiceState);
+  int findVoice();
 
 private:
 
@@ -128,6 +129,7 @@ private:
 
   // Ensemble On/Off
   bool ensembleOn = false;
+  uint32_t voiceCounter = 0;
   float lfo1Phase = 0;
   float lfo2Phase = 0;
 
