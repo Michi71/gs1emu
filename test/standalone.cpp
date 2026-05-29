@@ -190,7 +190,7 @@ int main() {
 
   gs1emu = new CGS1Emu();
   gs1emu->Initialize();
-  gs1emu->setCurrentProgram(2);
+
 
   
   if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
@@ -214,7 +214,11 @@ int main() {
 
   std::thread inputThread(inputThreadFunc);
 
-  printf("Press '+' or '-' to change patch, 'q' to quit.\n");
+  printf("Press '+' or '-' to change patch, 'q' to quit.\n\n");
+
+  gs1emu->setCurrentProgram(0);
+  printf("Patch %2d: %s\n", gs1emu->getCurrentProgram() + 1,
+         gs1emu->getProgramName(gs1emu->getCurrentProgram()));
 
   bool quit_requested = false;
   bool ensemble=false;
@@ -237,14 +241,14 @@ int main() {
         SDL_LockAudioDevice(sdl_audio);
         gs1emu->setCurrentProgram(prog);
         SDL_UnlockAudioDevice(sdl_audio);
-        std::cout << "Patch: " << prog << std::endl;
+        printf("Patch %2d: %s\n", prog + 1, gs1emu->getProgramName(prog));
     } else if (c == '-') {
         int prog = gs1emu->getCurrentProgram() - 1;
         if (prog < 0) prog = gs1emu->getNumPrograms() - 1;
         SDL_LockAudioDevice(sdl_audio);
         gs1emu->setCurrentProgram(prog);
         SDL_UnlockAudioDevice(sdl_audio);
-        std::cout << "Patch: " << prog << std::endl;
+        printf("Patch %2d: %s\n", prog + 1, gs1emu->getProgramName(prog));
     } else if (c == 'e') {
         gs1emu->setEnsembleOn(!ensemble);
         ensemble = gs1emu->getEnsembleOn();

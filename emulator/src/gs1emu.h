@@ -105,6 +105,7 @@ public:
   int getNumPrograms();
   int getCurrentProgram();
   void setCurrentProgram(int index);
+  const char* getProgramName(int index) const;
 
   void setEnsembleOn(bool ensonoff);
   bool getEnsembleOn();

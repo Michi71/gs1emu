@@ -52,6 +52,11 @@ int CGS1Emu::getNumPrograms() { return 16; }
 
 int CGS1Emu::getCurrentProgram() { return currentPatch; }
 
+const char* CGS1Emu::getProgramName(int index) const {
+  if (index < 0 || index >= 16) return "";
+  return patches[index]->Name;
+}
+
 void CGS1Emu::setCurrentProgram(int index) {
   currentPatch = index;
 }
