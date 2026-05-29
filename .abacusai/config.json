@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cmake --build /Users/michael/GitHub/gs1emu/build 2>&1 || true)",
-      "Bash(ctest --test-dir /Users/michael/GitHub/gs1emu/build --output-on-failure 2>&1 || true)",
-      "Bash(cmake --build /Users/michael/GitHub/gs1emu/build 2>&1 || true)"
-    ]
-  }
-}
