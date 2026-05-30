@@ -14,11 +14,11 @@ The GS1 (1981) was Yamaha's first commercially available FM synthesizer — a gr
 ```
 FM Module (2× per GS1):
 
-        +-----+                                         +-----+
-        |     V                                         V     |
+        +-----+                                         +-----------+
+        |     V                                         V           |
         |   +-----------------------+   +-----------------------+   |
    Pi   |   |     Modulator 1       |   |     Modulator 2       |   | Pi
-   Pi/2 |   | VRG / EG / EC / PG/OP|   | VRG / EG / EC / PG/OP|   | Pi/2
+   Pi/2 |   | VRG / EG / EC / PG/OP |   | VRG / EG / EC / PG/OP |   | Pi/2
         |   +----------+------------+   +------------+----------+   |
         |              |                             |              |
         +--------------+                             +--------------+
@@ -237,7 +237,6 @@ All three EQ bands use **biquad IIR filters** based on the [RBJ Audio EQ Cookboo
 | | |
 |-|-|
 | **Original FM engine** | [giulioz](https://github.com/giulioz/gs1.git) |
-| **Extended emulator** | Michael Geerken |
 | **FM synthesis theory** | John Chowning (Stanford CCRMA) |
 | **Reference hardware** | Yamaha GS1 (1981) |
 
