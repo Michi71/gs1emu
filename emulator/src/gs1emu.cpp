@@ -102,6 +102,25 @@ float CGS1Emu::getVibratoSpeed() const         { return vibratoSpeed; }
 void  CGS1Emu::setVibratoDepth(float depth)    { vibratoDepth = depth; }
 float CGS1Emu::getVibratoDepth() const         { return vibratoDepth; }
 
+// --- 3-Band EQ ---
+void  CGS1Emu::setEqBass(float dB) {
+    eqBassGain = std::max(-12.0f, std::min(12.0f, dB));
+    _eqBass.setLowShelf(100.0f, eqBassGain, (float)SampleRate);
+}
+float CGS1Emu::getEqBass() const   { return eqBassGain; }
+
+void  CGS1Emu::setEqMid(float dB) {
+    eqMidGain = std::max(-12.0f, std::min(12.0f, dB));
+    _eqMid.setPeaking(600.0f, 1.0f, eqMidGain, (float)SampleRate);
+}
+float CGS1Emu::getEqMid() const    { return eqMidGain; }
+
+void  CGS1Emu::setEqTreble(float dB) {
+    eqTrebleGain = std::max(-12.0f, std::min(12.0f, dB));
+    _eqTreble.setHighShelf(6000.0f, eqTrebleGain, (float)SampleRate);
+}
+float CGS1Emu::getEqTreble() const { return eqTrebleGain; }
+
 int CGS1Emu::getNumPrograms() { return 16; }
 
 int CGS1Emu::getCurrentProgram() { return currentPatch; }
@@ -551,6 +570,12 @@ CGS1Emu::CGS1Emu()
     }
 
     _filter.setLowpass(8000.0f, 0.707f, SampleRate);
+
+    // 3-Band EQ initialisieren (0 dB = flat)
+    _eqBass.setLowShelf(100.0f,   0.0f, (float)SampleRate);
+    _eqMid.setPeaking  (600.0f,  1.0f, 0.0f, (float)SampleRate);
+    _eqTreble.setHighShelf(6000.0f, 0.0f, (float)SampleRate);
+
     tremoloInc  = tremoloSpeed  * TWO_PI / (float)SampleRate;
     vibratoInc  = vibratoSpeed  * TWO_PI / (float)SampleRate;
 
@@ -678,6 +703,11 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
 
         float sample = map(sumSample, -262144.0f / 6, 262112.0f / 6, -1.0f, 1.0f);
         sample = _filter.process(sample);
+
+        // 3-Band EQ (Bass → Mid → Treble, seriell)
+        sample = _eqBass.process(sample);
+        sample = _eqMid.process(sample);
+        sample = _eqTreble.process(sample);
 
         if (ensembleOn == false) {
             outputL[i] = sample;

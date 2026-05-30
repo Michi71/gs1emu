@@ -22,13 +22,62 @@ struct GS1BiquadFilter {
         float cos_omega = std::cos(omega);
         float Q = resonance;
         float alpha = sin_omega / (2.0f * Q);
-        
+
         float a0 = 1.0f + alpha;
         b0 = ((1.0f - cos_omega) / 2.0f) / a0;
         b1 = (1.0f - cos_omega) / a0;
         b2 = ((1.0f - cos_omega) / 2.0f) / a0;
         a1 = (-2.0f * cos_omega) / a0;
         a2 = (1.0f - alpha) / a0;
+    }
+
+    // Low shelf: ±dBgain at freq_hz  (RBJ Audio EQ Cookbook, S=1)
+    void setLowShelf(float freq_hz, float dBgain, float sample_rate) {
+        float A  = std::pow(10.0f, dBgain / 40.0f);
+        float w0 = 2.0f * M_PI * freq_hz / sample_rate;
+        float cosw = std::cos(w0);
+        float sinw = std::sin(w0);
+        float alpha = sinw / 1.41421356f; // sin(w0)/sqrt(2), shelf slope S=1
+        float sqA  = std::sqrt(A);
+
+        float a0 =  (A+1) + (A-1)*cosw + 2.0f*sqA*alpha;
+        b0 =  A * ((A+1) - (A-1)*cosw + 2.0f*sqA*alpha) / a0;
+        b1 =  2.0f*A * ((A-1) - (A+1)*cosw)             / a0;
+        b2 =  A * ((A+1) - (A-1)*cosw - 2.0f*sqA*alpha) / a0;
+        a1 = -2.0f * ((A-1) + (A+1)*cosw)               / a0;
+        a2 =         ((A+1) + (A-1)*cosw - 2.0f*sqA*alpha) / a0;
+    }
+
+    // Peaking EQ bell: ±dBgain at freq_hz, Q controls bandwidth
+    void setPeaking(float freq_hz, float Q, float dBgain, float sample_rate) {
+        float A  = std::pow(10.0f, dBgain / 40.0f);
+        float w0 = 2.0f * M_PI * freq_hz / sample_rate;
+        float cosw = std::cos(w0);
+        float alpha = std::sin(w0) / (2.0f * Q);
+
+        float a0 = 1.0f + alpha / A;
+        b0 =  (1.0f + alpha * A) / a0;
+        b1 = (-2.0f * cosw)      / a0;
+        b2 =  (1.0f - alpha * A) / a0;
+        a1 = (-2.0f * cosw)      / a0;
+        a2 =  (1.0f - alpha / A) / a0;
+    }
+
+    // High shelf: ±dBgain at freq_hz  (RBJ Audio EQ Cookbook, S=1)
+    void setHighShelf(float freq_hz, float dBgain, float sample_rate) {
+        float A  = std::pow(10.0f, dBgain / 40.0f);
+        float w0 = 2.0f * M_PI * freq_hz / sample_rate;
+        float cosw = std::cos(w0);
+        float sinw = std::sin(w0);
+        float alpha = sinw / 1.41421356f;
+        float sqA  = std::sqrt(A);
+
+        float a0 =  (A+1) - (A-1)*cosw + 2.0f*sqA*alpha;
+        b0 =  A * ((A+1) + (A-1)*cosw + 2.0f*sqA*alpha) / a0;
+        b1 = -2.0f*A * ((A-1) + (A+1)*cosw)             / a0;
+        b2 =  A * ((A+1) + (A-1)*cosw - 2.0f*sqA*alpha) / a0;
+        a1 =  2.0f * ((A-1) - (A+1)*cosw)               / a0;
+        a2 =         ((A+1) - (A-1)*cosw - 2.0f*sqA*alpha) / a0;
     }
     
     float process(float input) {
@@ -136,6 +185,14 @@ public:
   void setVibratoDepth(float depth); // 0.0 – 1.0
   float getVibratoDepth() const;
 
+  // 3-Band EQ (±12 dB each band)
+  void setEqBass(float dB);          // Low shelf  @ 100 Hz, ±12 dB
+  float getEqBass() const;
+  void setEqMid(float dB);           // Peaking    @ 600 Hz, ±12 dB
+  float getEqMid() const;
+  void setEqTreble(float dB);        // High shelf @ 6 kHz,  ±12 dB
+  float getEqTreble() const;
+
   VoiceState voiceStates[MAXVOICES];
 
   const PatchConsts* patches[16];       // GS1 Factory Presets (1)–(16)
@@ -149,8 +206,16 @@ public:
 
 private:
 
-  // Filter 
+  // Anti-aliasing lowpass
   GS1BiquadFilter _filter;
+
+  // 3-Band EQ
+  GS1BiquadFilter _eqBass;
+  GS1BiquadFilter _eqMid;
+  GS1BiquadFilter _eqTreble;
+  float eqBassGain   = 0.0f;  // dB, ±12
+  float eqMidGain    = 0.0f;  // dB, ±12
+  float eqTrebleGain = 0.0f;  // dB, ±12
 
   // Ensemble On/Off
   bool ensembleOn = false;

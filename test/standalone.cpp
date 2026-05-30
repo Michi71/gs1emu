@@ -217,7 +217,8 @@ int main() {
 
   printf("'+'/'-' patch | 'e' ensemble | 'd' detune\n");
   printf("'t' tremolo  | '['/']' speed | '{'/'}' depth\n");
-  printf("'v' vibrato  | 'n'/'m' speed | ','/'.' depth | 'q' quit\n\n");
+  printf("'v' vibrato  | 'n'/'m' speed | ','/'.' depth\n");
+  printf("EQ: 'b'/'B' bass | 'f'/'F' mid | 'h'/'H' treble  (step: 1dB) | 'q' quit\n\n");
 
   gs1emu->setCurrentProgram(0);
   printf("Patch %2d: %s\n", gs1emu->getCurrentProgram() + 1,
@@ -332,6 +333,30 @@ int main() {
         gs1emu->setVibratoDepth(dep);
         SDL_UnlockAudioDevice(sdl_audio);
         printf("Vibrato   Depth=%.2f\n", dep);
+    } else if (c == 'b') {
+        float g = std::max(-12.0f, gs1emu->getEqBass() - 1.0f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setEqBass(g); SDL_UnlockAudioDevice(sdl_audio);
+        printf("EQ Bass   = %+.0f dB\n", g);
+    } else if (c == 'B') {
+        float g = std::min(12.0f, gs1emu->getEqBass() + 1.0f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setEqBass(g); SDL_UnlockAudioDevice(sdl_audio);
+        printf("EQ Bass   = %+.0f dB\n", g);
+    } else if (c == 'f') {
+        float g = std::max(-12.0f, gs1emu->getEqMid() - 1.0f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setEqMid(g); SDL_UnlockAudioDevice(sdl_audio);
+        printf("EQ Mid    = %+.0f dB\n", g);
+    } else if (c == 'F') {
+        float g = std::min(12.0f, gs1emu->getEqMid() + 1.0f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setEqMid(g); SDL_UnlockAudioDevice(sdl_audio);
+        printf("EQ Mid    = %+.0f dB\n", g);
+    } else if (c == 'h') {
+        float g = std::max(-12.0f, gs1emu->getEqTreble() - 1.0f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setEqTreble(g); SDL_UnlockAudioDevice(sdl_audio);
+        printf("EQ Treble = %+.0f dB\n", g);
+    } else if (c == 'H') {
+        float g = std::min(12.0f, gs1emu->getEqTreble() + 1.0f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setEqTreble(g); SDL_UnlockAudioDevice(sdl_audio);
+        printf("EQ Treble = %+.0f dB\n", g);
     } else if (c == 'q') {
         quit_requested = true;
         break;
