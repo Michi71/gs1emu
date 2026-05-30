@@ -1,4 +1,5 @@
 #include "gs1emu.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -84,6 +85,22 @@ int CGS1Emu::findVoice()
 // --- Detune ---
 void CGS1Emu::setDetuneMode(DetuneMode mode) { detuneMode = mode; }
 DetuneMode CGS1Emu::getDetuneMode() const    { return detuneMode; }
+
+// --- Tremolo ---
+void  CGS1Emu::setTremoloOn(bool on)           { tremoloOn = on; }
+bool  CGS1Emu::getTremoloOn() const            { return tremoloOn; }
+void  CGS1Emu::setTremoloSpeed(float hz)       { tremoloSpeed = hz; tremoloInc = hz * TWO_PI / (float)SampleRate; }
+float CGS1Emu::getTremoloSpeed() const         { return tremoloSpeed; }
+void  CGS1Emu::setTremoloDepth(float depth)    { tremoloDepth = depth; }
+float CGS1Emu::getTremoloDepth() const         { return tremoloDepth; }
+
+// --- Vibrato ---
+void  CGS1Emu::setVibratoOn(bool on)           { vibratoOn = on; }
+bool  CGS1Emu::getVibratoOn() const            { return vibratoOn; }
+void  CGS1Emu::setVibratoSpeed(float hz)       { vibratoSpeed = hz; vibratoInc = hz * TWO_PI / (float)SampleRate; }
+float CGS1Emu::getVibratoSpeed() const         { return vibratoSpeed; }
+void  CGS1Emu::setVibratoDepth(float depth)    { vibratoDepth = depth; }
+float CGS1Emu::getVibratoDepth() const         { return vibratoDepth; }
 
 int CGS1Emu::getNumPrograms() { return 16; }
 
@@ -325,29 +342,21 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
     }
   }
 
-  /*// 1. LFO für Tremolo (ca. 1.0Hz bis 7.0Hz)
-  // In deiner Klasse als Member: float tremoloPhase;
-  tremoloPhase += tremoloInc; // tremoloInc = (freq * 65536) / 34687
-  if (tremoloPhase >= 65536.0f) tremoloPhase -= 65536.0f;
-
-  // 2. Tremolo-Wert berechnen (0.0 bis 1.0)
-  float tremoloMod = 1.0f - (tremoloDepth * (0.5f + 0.5f * sin(tremoloPhase * TWO_PI_OVER_65536)));
-
-  // 3. Anwendung auf die Carrier-Amplituden
-  // Wichtig: Nur auf die Carrier (AMP[0] und AMP[1]), 
-  // damit die Klangfarbe (Modulationsindex) stabil bleibt!
-  int finalAmp0 = (int)(voiceState.AMP[0] * tremoloMod);
-  int finalAmp1 = (int)(voiceState.AMP[1] * tremoloMod);
-  */
-
-  // In deiner Routing-Logik nutzt du dann finalAmp statt voiceState.AMP
+  // Tremolo: nur auf Carrier (AMP[0], AMP[1]) anwenden.
+  // Modulatoren bleiben unverändert → FM-Index (Klangfarbe) bleibt stabil.
+  // tremoloAtten wird einmal pro Sample in processBlock berechnet.
+  if (tremoloAtten > 0) {
+      voiceState.AMP[0] = std::min(voiceState.AMP[0] + tremoloAtten, 4094);
+      voiceState.AMP[1] = std::min(voiceState.AMP[1] + tremoloAtten, 4094);
+  }
 
   // Update all Phase accumulators..(28bit)
+  // Vibrato: vibratoFraction wird einmal pro Sample in processBlock berechnet.
+  // Alle 4 Operatoren gleichmäßig modulieren → Intervallverhältnisse bleiben stabil.
   for (int n = 0; n < 4; n++) {
     voiceState.PAI[n] = voiceState.PAI[n] & 0xFFFFFFF;
-    // Shift down externally used accu value.
     voiceState.PAE[n] = voiceState.PAI[n] >> 18;
-    voiceState.PAI[n] = voiceState.PAI[n] + voiceState.CW[n];
+    voiceState.PAI[n] += (int)(voiceState.CW[n] * (1.0f + vibratoFraction));
   }
 
   // Following section is routing and operator stack config. 4 modes: norm,
@@ -541,7 +550,9 @@ CGS1Emu::CGS1Emu()
       expTable2[i] = i;
     }
 
-    _filter.setLowpass(8000.0f, 0.707f, SampleRate); 
+    _filter.setLowpass(8000.0f, 0.707f, SampleRate);
+    tremoloInc  = tremoloSpeed  * TWO_PI / (float)SampleRate;
+    vibratoInc  = vibratoSpeed  * TWO_PI / (float)SampleRate;
 
     // GS1 Factory Presets (1)–(16)
     for (int i = 0; i < 16; ++i)
@@ -633,6 +644,29 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
 {
     for (int i = 0; i < numSamples; ++i)
     {
+        // Tremolo LFO — einmal pro Sample (nicht pro Stimme!)
+        if (tremoloOn) {
+            tremoloPhase += tremoloInc;
+            if (tremoloPhase >= TWO_PI) tremoloPhase -= TWO_PI;
+            // Log-Domain: 512 Einheiten ≈ 12 dB Dämpfung bei Depth=1.0
+            // Sinuskurve: 0 bei Phase=0 (laut), Maximum bei Phase=π (leise)
+            tremoloAtten = (int)(tremoloDepth * 512.0f *
+                                 (0.5f - 0.5f * std::cos(tremoloPhase)));
+        } else {
+            tremoloAtten = 0;
+        }
+
+        // Vibrato LFO — einmal pro Sample
+        if (vibratoOn) {
+            vibratoPhase += vibratoInc;
+            if (vibratoPhase >= TWO_PI) vibratoPhase -= TWO_PI;
+            // Lineare Näherung: fraction ≈ cents * ln(2)/1200
+            vibratoFraction = vibratoDepth * kVibratoMaxCents *
+                              kVibratoCentsToFraction * std::sin(vibratoPhase);
+        } else {
+            vibratoFraction = 0.0f;
+        }
+
         int sumSample = 0;
         // Silence detection: skip voices with all EA == 0 and not active
         for (int v = 0; v < MAXVOICES; ++v) {

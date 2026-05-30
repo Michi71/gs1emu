@@ -120,6 +120,22 @@ public:
   void setDetuneMode(DetuneMode mode);
   DetuneMode getDetuneMode() const;
 
+  // Tremolo (Speed 1–6 Hz, Depth 0.0–1.0, On/Off)
+  void setTremoloOn(bool on);
+  bool getTremoloOn() const;
+  void setTremoloSpeed(float hz);    // 1.0 – 6.0 Hz
+  float getTremoloSpeed() const;
+  void setTremoloDepth(float depth); // 0.0 – 1.0
+  float getTremoloDepth() const;
+
+  // Vibrato (Speed 4–10 Hz, Depth 0.0–1.0, On/Off)
+  void setVibratoOn(bool on);
+  bool getVibratoOn() const;
+  void setVibratoSpeed(float hz);    // 4.0 – 10.0 Hz
+  float getVibratoSpeed() const;
+  void setVibratoDepth(float depth); // 0.0 – 1.0
+  float getVibratoDepth() const;
+
   VoiceState voiceStates[MAXVOICES];
 
   const PatchConsts* patches[16];       // GS1 Factory Presets (1)–(16)
@@ -139,6 +155,26 @@ private:
   // Ensemble On/Off
   bool ensembleOn = false;
   uint32_t voiceCounter = 0;
+
+  // Tremolo LFO
+  bool  tremoloOn    = false;
+  float tremoloSpeed = 3.0f;   // Hz
+  float tremoloDepth = 0.5f;   // 0.0 – 1.0
+  float tremoloPhase = 0.0f;   // aktuelle LFO-Phase (0 – 2π)
+  float tremoloInc   = 0.0f;   // Phase-Inkrement pro Sample
+  int   tremoloAtten = 0;      // aktueller Dämpfungswert (Log-Domain), wird in processBlock berechnet
+
+  // Vibrato LFO
+  bool  vibratoOn       = false;
+  float vibratoSpeed    = 6.0f;  // Hz
+  float vibratoDepth    = 0.3f;  // 0.0 – 1.0
+  float vibratoPhase    = 0.0f;  // aktuelle LFO-Phase (0 – 2π)
+  float vibratoInc      = 0.0f;  // Phase-Inkrement pro Sample
+  float vibratoFraction = 0.0f;  // aktueller Frequenz-Faktor, wird in processBlock berechnet
+  // Maximale Pitch-Deviation bei Depth=1.0: ±30 Cent
+  // Berechnung: cents * ln(2)/1200 → lineare Frequenz-Näherung
+  static constexpr float kVibratoMaxCents = 30.0f;
+  static constexpr float kVibratoCentsToFraction = 0.000578f; // ln(2)/1200
 
   // Detune
   DetuneMode detuneMode = DetuneMode::OFF;

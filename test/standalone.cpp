@@ -2,6 +2,7 @@
 #include <portmidi.h>
 #include <termios.h>
 #include <unistd.h>
+#include <algorithm>
 #include <cmath>
 #include <thread>
 #include <atomic>
@@ -214,7 +215,9 @@ int main() {
 
   std::thread inputThread(inputThreadFunc);
 
-  printf("Press '+'/'-' patch, 'e' ensemble, 'd' detune, 'q' quit.\n\n");
+  printf("'+'/'-' patch | 'e' ensemble | 'd' detune\n");
+  printf("'t' tremolo  | '['/']' speed | '{'/'}' depth\n");
+  printf("'v' vibrato  | 'n'/'m' speed | ','/'.' depth | 'q' quit\n\n");
 
   gs1emu->setCurrentProgram(0);
   printf("Patch %2d: %s\n", gs1emu->getCurrentProgram() + 1,
@@ -266,7 +269,69 @@ int main() {
         SDL_LockAudioDevice(sdl_audio);
         gs1emu->setDetuneMode(detuneCycle[detuneIndex]);
         SDL_UnlockAudioDevice(sdl_audio);
-        printf("Detune = %s\n", detuneNames[detuneIndex]);
+        printf("Detune    = %s\n", detuneNames[detuneIndex]);
+    } else if (c == 't') {
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setTremoloOn(!gs1emu->getTremoloOn());
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Tremolo   = %s  Speed=%.1fHz  Depth=%.2f\n",
+               gs1emu->getTremoloOn() ? "ON" : "OFF",
+               gs1emu->getTremoloSpeed(), gs1emu->getTremoloDepth());
+    } else if (c == '[') {
+        float spd = std::max(1.0f, gs1emu->getTremoloSpeed() - 0.5f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setTremoloSpeed(spd);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Tremolo   Speed=%.1fHz\n", spd);
+    } else if (c == ']') {
+        float spd = std::min(6.0f, gs1emu->getTremoloSpeed() + 0.5f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setTremoloSpeed(spd);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Tremolo   Speed=%.1fHz\n", spd);
+    } else if (c == '{') {
+        float dep = std::max(0.0f, gs1emu->getTremoloDepth() - 0.1f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setTremoloDepth(dep);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Tremolo   Depth=%.2f\n", dep);
+    } else if (c == '}') {
+        float dep = std::min(1.0f, gs1emu->getTremoloDepth() + 0.1f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setTremoloDepth(dep);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Tremolo   Depth=%.2f\n", dep);
+    } else if (c == 'v') {
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setVibratoOn(!gs1emu->getVibratoOn());
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Vibrato   = %s  Speed=%.1fHz  Depth=%.2f\n",
+               gs1emu->getVibratoOn() ? "ON" : "OFF",
+               gs1emu->getVibratoSpeed(), gs1emu->getVibratoDepth());
+    } else if (c == 'n') {
+        float spd = std::max(4.0f, gs1emu->getVibratoSpeed() - 0.5f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setVibratoSpeed(spd);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Vibrato   Speed=%.1fHz\n", spd);
+    } else if (c == 'm') {
+        float spd = std::min(10.0f, gs1emu->getVibratoSpeed() + 0.5f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setVibratoSpeed(spd);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Vibrato   Speed=%.1fHz\n", spd);
+    } else if (c == ',') {
+        float dep = std::max(0.0f, gs1emu->getVibratoDepth() - 0.1f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setVibratoDepth(dep);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Vibrato   Depth=%.2f\n", dep);
+    } else if (c == '.') {
+        float dep = std::min(1.0f, gs1emu->getVibratoDepth() + 0.1f);
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setVibratoDepth(dep);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Vibrato   Depth=%.2f\n", dep);
     } else if (c == 'q') {
         quit_requested = true;
         break;
