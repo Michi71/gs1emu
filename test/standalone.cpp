@@ -214,14 +214,22 @@ int main() {
 
   std::thread inputThread(inputThreadFunc);
 
-  printf("Press '+' or '-' to change patch, 'q' to quit.\n\n");
+  printf("Press '+'/'-' patch, 'e' ensemble, 'd' detune, 'q' quit.\n\n");
 
   gs1emu->setCurrentProgram(0);
   printf("Patch %2d: %s\n", gs1emu->getCurrentProgram() + 1,
          gs1emu->getProgramName(gs1emu->getCurrentProgram()));
 
   bool quit_requested = false;
-  bool ensemble=false;
+  bool ensemble = false;
+
+  // Detune-Reihenfolge wie auf dem originalen GS1-Schalter
+  const DetuneMode detuneCycle[] = {
+      DetuneMode::RANDOM2, DetuneMode::RANDOM1, DetuneMode::OFF,
+      DetuneMode::STATIC1, DetuneMode::STATIC2
+  };
+  const char* detuneNames[] = { "RANDOM 2", "RANDOM 1", "OFF", "STATIC 1", "STATIC 2" };
+  int detuneIndex = 2; // startet auf OFF
 
   while (!quit_requested) {
     MIDI_Update();
@@ -252,7 +260,13 @@ int main() {
     } else if (c == 'e') {
         gs1emu->setEnsembleOn(!ensemble);
         ensemble = gs1emu->getEnsembleOn();
-        printf("Ensemble = %d\n", ensemble);
+        printf("Ensemble = %s\n", ensemble ? "ON" : "OFF");
+    } else if (c == 'd') {
+        detuneIndex = (detuneIndex + 1) % 5;
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setDetuneMode(detuneCycle[detuneIndex]);
+        SDL_UnlockAudioDevice(sdl_audio);
+        printf("Detune = %s\n", detuneNames[detuneIndex]);
     } else if (c == 'q') {
         quit_requested = true;
         break;

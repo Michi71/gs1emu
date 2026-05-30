@@ -1,5 +1,6 @@
 #include "gs1emu.h"
 #include <cmath>
+#include <cstdlib>
 
 // Constants
 static int SampleRate = 34687; // 34687Hz Samplerate (IMPORTANT!)
@@ -80,6 +81,10 @@ int CGS1Emu::findVoice()
     return oldest;
 }
 
+// --- Detune ---
+void CGS1Emu::setDetuneMode(DetuneMode mode) { detuneMode = mode; }
+DetuneMode CGS1Emu::getDetuneMode() const    { return detuneMode; }
+
 int CGS1Emu::getNumPrograms() { return 16; }
 
 int CGS1Emu::getCurrentProgram() { return currentPatch; }
@@ -96,8 +101,8 @@ void CGS1Emu::setCurrentProgram(int index) {
 void CGS1Emu::setEnsembleOn(bool ensonoff) { ensembleOn = ensonoff; }
 bool CGS1Emu::getEnsembleOn() { return ensembleOn; }
 
-void CGS1Emu::noteOn(VoiceState &voiceState, float KNOTE,
-                                        float Velocity) {
+void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
+                     float Velocity) {
   const PatchConsts& patch = *patches[currentPatch];
 
   voiceState.noteOn = true;
@@ -122,7 +127,24 @@ void CGS1Emu::noteOn(VoiceState &voiceState, float KNOTE,
   }
   voiceState.KNOTE = voiceState.KNOTE - 1;
   voiceState.NOTE = 27.50 * pow(2, (voiceState.KNOTE / (12))); // FROM A1
-  voiceState.rnd = 0;
+  switch (detuneMode) {
+    case DetuneMode::RANDOM1:
+      voiceState.rnd = ((float)(rand() % 201) - 100) * 0.0003f; // ±3 Cent
+      break;
+    case DetuneMode::RANDOM2:
+      voiceState.rnd = ((float)(rand() % 201) - 100) * 0.0008f; // ±8 Cent
+      break;
+    case DetuneMode::STATIC1:
+      voiceState.rnd = staticOffsets1[voiceIndex % MAXVOICES];
+      break;
+    case DetuneMode::STATIC2:
+      voiceState.rnd = staticOffsets2[voiceIndex % MAXVOICES];
+      break;
+    case DetuneMode::OFF:
+    default:
+      voiceState.rnd = 0.0f;
+      break;
+  }
 
   for (int i = 0; i < 4; i++) {
     voiceState.DTE[i] = patch.DTE[i];
@@ -550,7 +572,7 @@ void CGS1Emu::processMidi(uint8_t* data, int size)
             {
                 int v = findVoice();
                 voiceStates[v].noteAge = ++voiceCounter;
-                noteOn(voiceStates[v], note - 20, 127 - velocity);
+                noteOn(voiceStates[v], v, note - 20, 127 - velocity);
             }
             else
             {

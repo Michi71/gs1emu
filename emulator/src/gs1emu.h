@@ -48,6 +48,12 @@ struct GS1BiquadFilter {
 
 enum MidiType { NoteOn, NoteOff, SustainPedalOn, SustainPedalOff };
 
+// Detune-Modi wie beim originalen GS1-Schalter:
+//   RANDOM1/2  — zufälliger Offset pro Note-On (organisch, lebendig)
+//   STATIC1/2  — fester Offset pro Stimme     (konsistent, breiter Chor)
+//   OFF        — kein Detune
+enum class DetuneMode { RANDOM2, RANDOM1, OFF, STATIC1, STATIC2 };
+
 struct MidiMessage {
     MidiType type;
     int noteNumber;
@@ -111,6 +117,9 @@ public:
   void setEnsembleOn(bool ensonoff);
   bool getEnsembleOn();
 
+  void setDetuneMode(DetuneMode mode);
+  DetuneMode getDetuneMode() const;
+
   VoiceState voiceStates[MAXVOICES];
 
   const PatchConsts* patches[16];       // GS1 Factory Presets (1)–(16)
@@ -118,7 +127,7 @@ public:
   int currentPatch = 0;
   int sampleRate;
 
-  void noteOn(VoiceState& voiceState, float KNOTE, float Velocity);
+  void noteOn(VoiceState& voiceState, int voiceIndex, float KNOTE, float Velocity);
   int fmGenSample(VoiceState& voiceState);
   int findVoice();
 
@@ -130,6 +139,22 @@ private:
   // Ensemble On/Off
   bool ensembleOn = false;
   uint32_t voiceCounter = 0;
+
+  // Detune
+  DetuneMode detuneMode = DetuneMode::OFF;
+  // Feste Cent-Offsets für STATIC-Modi: 16 Stimmen symmetrisch um 0 verteilt.
+  // Index = Voice-Nummer, Wert in Semitonen (0.01 = 1 Cent).
+  // Werte in Semitönen: 0.01 = 1 Cent
+  // STATIC1: ±5 Cent max  → leichte Schwebung (~1 Hz bei A4)
+  // STATIC2: ±12 Cent max → deutlicher Chorus-Charakter (~3 Hz bei A4)
+  static constexpr float staticOffsets1[MAXVOICES] = {
+      0.000f, +0.030f, -0.030f, +0.050f, -0.050f, +0.015f, -0.015f, +0.040f,
+     -0.040f, +0.022f, -0.022f, +0.048f, -0.048f, +0.010f, -0.010f, +0.035f
+  };
+  static constexpr float staticOffsets2[MAXVOICES] = {
+      0.000f, +0.070f, -0.070f, +0.120f, -0.120f, +0.035f, -0.035f, +0.090f,
+     -0.090f, +0.055f, -0.055f, +0.110f, -0.110f, +0.020f, -0.020f, +0.080f
+  };
   float lfo1Phase = 0;
   float lfo2Phase = 0;
 
