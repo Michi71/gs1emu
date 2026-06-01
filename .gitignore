@@ -68,6 +68,8 @@ vcpkg_installed/
 Testing/
 .cache/
 
+.DS_Store
+
 build/
 .claude/
 CLAUDE.md
