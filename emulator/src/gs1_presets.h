@@ -96,7 +96,21 @@ const PatchConsts gs1_HarpsichordI = {
     {0, 0, 0, 0},               // IL
     {0, 0, 0, 0},               // SL
     {0, 0},                     // FMmode
-    "Harpsichord I"
+    "Harpsichord I",
+    // ===== LAYER: Mechanik-"Thunk" (Tastatur/Docke) =====
+    // Der native Cembalo-Anschlag ist bereits sehr hell/scharf; ein heller
+    // Pluck-Layer geht darin unter. Stattdessen ein tiefer, holziger mecha-
+    // nischer Anschlag (Docken-/Tastenmechanik), der hörbar kontrastiert.
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: reiner Layer (kein Chorus)
+    1.0f, 1.0f,                  // DS_MixBase : DS_MixLayer (voll, Basis ist laut)
+    {0.5f, 0.5f, 0.5f, 0.5f},    // DS_ATScale: schneller Mechanik-Knock
+    {90.0f, 160.0f, 130.0f, 8.0f}, // DS_DTScale: kurz, aber mit etwas Körper
+    {1.0f, 1.0f, 2.0f, 3.0f},    // DS_Ratio: tiefer, holziger Knock
+    {0, 0},                      // DS_FMmode: NORM
+    {13.0f, 10.0f, 2.0f, 0.0f},  // DS_LevelDb (laut genug, um durch helle Basis zu kommen)
+    4.0f,                        // DS_ModKbdDb: oben weniger metallisch
+    0.35f,                       // DS_DTKbdTrack: gleichmäßige Länge
+    1                            // DS_MixMode: ADD
 };
 
 // --- (2) A-2  Harpsichord III ---
@@ -175,7 +189,18 @@ const PatchConsts gs1_HarpsichordIII = {
     {0, 0, 0, 0},               // IL
     {0, 0, 0, 0},               // SL
     {0, 0},                     // FMmode
-    "Harpsichord III"
+    "Harpsichord III",
+    // ===== LAYER: Mechanik-"Thunk" (etwas heller als A-1) =====
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: reiner Layer
+    1.0f, 1.0f,                  // DS_MixBase : DS_MixLayer (voll)
+    {0.5f, 0.5f, 0.5f, 0.5f},    // DS_ATScale: schneller Knock
+    {90.0f, 160.0f, 130.0f, 8.0f}, // DS_DTScale: kurz mit Körper
+    {1.0f, 1.0f, 3.0f, 4.0f},    // DS_Ratio: holziger Knock, etwas heller
+    {0, 0},                      // DS_FMmode: NORM
+    {13.0f, 10.0f, 2.0f, 0.0f},  // DS_LevelDb (laut genug für die helle Basis)
+    4.5f,                        // DS_ModKbdDb
+    0.35f,                       // DS_DTKbdTrack
+    1                            // DS_MixMode: ADD
 };
 
 
@@ -237,7 +262,20 @@ const PatchConsts gs1_ClavichordII = {
     {0, 0, 0, 0},             // IL
     {0, 0, 0, 0},             // SL
     {3, 0},                   // FMmode: Stack1=CROSSMOD (M2->M1 Buzz!), Stack2=NORM
-    "Clavichord II"
+    "Clavichord II",
+    // ===== LAYER: intimer Tangenten-Anschlag (key contact) =====
+    // Leiser, dezent metallischer Kontakt-Klick. Layer in NORM (sauberer
+    // Klick), unabhängig vom CROSSMOD-Buzz des Grund-Stacks.
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: reiner Layer
+    1.0f, 0.4f,                  // DS_MixBase : DS_MixLayer (sehr dezent)
+    {0.6f, 0.6f, 0.5f, 0.5f},    // DS_ATScale
+    {160.0f, 280.0f, 220.0f, 12.0f}, // DS_DTScale: kurzer Kontakt-Klick
+    {1.0f, 2.0f, 5.0f, 4.0f},    // DS_Ratio
+    {0, 0},                      // DS_FMmode: NORM (sauberer Klick)
+    {3.0f, 2.0f, 1.0f, 0.0f},    // DS_LevelDb (zurückhaltend, intim)
+    4.0f,                        // DS_ModKbdDb
+    0.35f,                       // DS_DTKbdTrack
+    1                            // DS_MixMode: ADD
 };
 
 // --- (4) B-1  Vibraphone ---
@@ -301,7 +339,20 @@ const PatchConsts gs1_Vibraphone = {
     {0, 0, 0, 0},             // IL
     {0, 0, 0, 0},             // SL
     {3, 0},                   // FMmode: NORM/NORM
-    "Vibraphone"
+    "Vibraphone",
+    // ===== LAYER: weicher Mallet-Anschlag (yarn mallet) =====
+    // Runder, eher dunkler "Thunk" des weichen Schlägels auf der Metallplatte
+    // (kein heller Bite). Weicher Attack, tiefere Modulator-Ratios.
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: reiner Layer
+    1.0f, 0.55f,                 // DS_MixBase : DS_MixLayer
+    {0.4f, 0.4f, 0.35f, 0.35f},  // DS_ATScale: weicher Schlägel
+    {120.0f, 220.0f, 180.0f, 8.0f}, // DS_DTScale: kurzer Mallet-Thunk
+    {1.0f, 2.0f, 4.0f, 3.0f},    // DS_Ratio: dunkler/weicher als Klavier
+    {0, 0},                      // DS_FMmode: NORM
+    {5.0f, 3.0f, 1.0f, 0.0f},    // DS_LevelDb
+    3.0f,                        // DS_ModKbdDb
+    0.35f,                       // DS_DTKbdTrack
+    1                            // DS_MixMode: ADD
 };
 
 // --- (5) B-2  Celeste ---
@@ -381,7 +432,20 @@ const PatchConsts gs1_Celeste = {
     {0, 0, 0, 0},               // IL
     {0, 0, 0, 0},               // SL
     {0, 0},                     // FMmode
-    "Celeste"
+    "Celeste",
+    // ===== LAYER: heller Glocken-Ping-Anschlag =====
+    // Kurzer, glockig-heller "Ping" des Hammers auf der Metallplatte
+    // (heller als Vibraphon, aber tonal dank Rolloff nach oben).
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: reiner Layer
+    1.0f, 0.5f,                  // DS_MixBase : DS_MixLayer
+    {0.5f, 0.5f, 0.45f, 0.45f},  // DS_ATScale
+    {140.0f, 260.0f, 200.0f, 9.0f}, // DS_DTScale: kurzer Bell-Ping
+    {1.0f, 3.0f, 7.0f, 5.0f},    // DS_Ratio: glockig-hell (C2=3 für Bell-Anteil)
+    {0, 0},                      // DS_FMmode: NORM
+    {5.0f, 3.0f, 2.0f, 1.0f},    // DS_LevelDb
+    4.0f,                        // DS_ModKbdDb
+    0.35f,                       // DS_DTKbdTrack
+    1                            // DS_MixMode: ADD
 };
 
 
@@ -542,7 +606,36 @@ const PatchConsts gs1_AcousticPianoI = {
     {0, 0, 0, 0},               // IL
     {0, 0, 0, 0},               // SL
     {0, 0},                     // FMmode
-    "Acoustic Piano I"
+    "Acoustic Piano I",
+    // ===== DOUBLE-STACK = ECHTER LAYER (kein Chorus) =====
+    // Stack 2 ist hier KEIN verstimmter Klon, sondern eine eigenständige
+    // Hammer-Attack-Schicht: ein heller, perkussiver Transient (~100 ms),
+    // der dem Grundklang den fehlenden Anschlags-"Klick"/Bite gibt.
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: 0 → keine Schwebung, reiner Layer
+    1.0f, 0.6f,                  // DS_MixBase : DS_MixLayer (Layer ≈ -4.4 dB
+                                 //   gedrosselt → Anschlag tritt weniger vor)
+    // DS_ATScale < 1 → langsamerer, weicherer Layer-Attack: rundet den harten
+    // "mit-Stock-angeschlagen"-Transienten zu einem Filzhammer-Thump ab.
+    {0.4f, 0.4f, 0.3f, 0.3f},    // DS_ATScale: weicher Filz-Anschlag
+    // DS_DTScale: sehr schneller Carrier-Decay → Layer ist ein kurzer
+    // Transient (~100 ms), kein anhaltender Ton. Modulator hält kurz nach,
+    // damit der Bite hell ist, M2 fällt extrem schnell.
+    {130.0f, 260.0f, 200.0f, 7.0f},
+    // ----- Layer-spezifische Klangfarbe (überschreibt Stack-1-Vererbung) -----
+    // Moderate Modulator-Ratios → Helligkeit sitzt nah am Grundton, das
+    // Spektrum füllt sich glatt auf (kein isolierter HF-Cluster = kein
+    // "Zischeln/Rauschen" wie bei M1=14/M2=11). C2=2 (Oktave) gibt dem
+    // Klick Körper statt Inharmonizität.
+    {1.0f, 2.0f, 6.0f, 4.0f},    // DS_Ratio: C1=Grundton, C2=Oktave-Klick,
+                                 //   M1=6 / M2=4 → heller, aber tonaler Bite
+    {0, 0},                      // DS_FMmode: NORM
+    {6.0f, 4.0f, 2.0f, 1.0f},    // DS_LevelDb: Carrier +6/+4 (Präsenz),
+                                 //   Modulatoren nur +2/+1 → moderater Index
+    4.0f,                        // DS_ModKbdDb: Bite pro Oktave über C2 um 4 dB
+                                 //   leiser → hohe Töne nicht metallisch
+    0.35f,                       // DS_DTKbdTrack: Layer-Länge fast tastatur-
+                                 //   unabhängig → gleicher Anschlag tief wie hoch
+    1                            // DS_MixMode: 1 = ADD (Layer oben drauf, kein Chorus)
 };
 
 
@@ -626,7 +719,20 @@ const PatchConsts gs1_ElectricPianoI = {
     {0, 0, 0, 0},       // IL
     {0, 0, 0, 0},       // SL: Piano-Modus (klingt immer aus)
     {0, 0},             // FMmode: Beides NORM (keine Crossmod, kein Feedback)
-    "Electric Piano I"
+    "Electric Piano I",
+    // ===== LAYER: Tine-"Bark"/Bite (Rhodes-Anschlag) =====
+    // Der charakteristische helle Tine-Bark beim Anschlag, oben drauf addiert.
+    // Recht direkt (Bark ist sofort da), kurz, mittenbetont-hell.
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: reiner Layer
+    1.0f, 0.35f,                 // DS_MixBase : DS_MixLayer (subtiler, weniger fremd)
+    {0.7f, 0.7f, 0.6f, 0.6f},    // DS_ATScale: etwas weicherer Bite
+    {110.0f, 200.0f, 160.0f, 7.0f}, // DS_DTScale: kurzer Bark
+    {1.0f, 2.0f, 6.0f, 4.0f},    // DS_Ratio: heller Tine-Bite
+    {0, 0},                      // DS_FMmode: NORM
+    {4.0f, 2.0f, 1.0f, 0.0f},    // DS_LevelDb (Bark dezenter, weniger metallisch)
+    4.0f,                        // DS_ModKbdDb
+    0.35f,                       // DS_DTKbdTrack
+    1                            // DS_MixMode: ADD
 };
 
 
@@ -705,7 +811,18 @@ const PatchConsts gs1_ElectricPianoIII = {
     {0, 0, 0, 0},               // IL
     {0, 0, 0, 0},               // SL
     {0, 0},                     // FMmode
-    "Elec Piano III"
+    "Elec Piano III",
+    // ===== LAYER: weicherer Tine-Bite (mellower EP) =====
+    {0.0f, 0.0f, 0.0f, 0.0f},    // DS_Detune: reiner Layer
+    1.0f, 0.3f,                  // DS_MixBase : DS_MixLayer (subtiler)
+    {0.7f, 0.7f, 0.6f, 0.6f},    // DS_ATScale: weicherer Bite
+    {110.0f, 200.0f, 170.0f, 7.0f}, // DS_DTScale: kurzer Bite
+    {1.0f, 2.0f, 5.0f, 4.0f},    // DS_Ratio: etwas weicher als EP I
+    {0, 0},                      // DS_FMmode: NORM
+    {3.0f, 2.0f, 1.0f, 0.0f},    // DS_LevelDb (dezenter)
+    4.0f,                        // DS_ModKbdDb
+    0.35f,                       // DS_DTKbdTrack
+    1                            // DS_MixMode: ADD
 };
 
 
@@ -786,7 +903,13 @@ const PatchConsts gs1_StringI = {
     {0, 0, 0, 0},               // IL
     {0, 0, 0, 0},               // SL
     {0, 0},                     // FMmode
-    "String I"
+    "String I",
+    // Double-Stack: Solo-Streicher → weite Verstimmung; Layer-Carrier schwingt
+    // deutlich langsamer ein (AT 0.7) → evolvierender Ensemble-Swell.
+    {10.0f, -10.0f, 8.0f, -7.0f}, // DS_Detune (cents)
+    1.0f, 1.0f,                   // DS_MixBase : DS_MixLayer
+    {0.70f, 0.70f, 0.80f, 0.80f}, // DS_ATScale
+    {1.0f, 1.0f, 1.0f, 1.0f}      // DS_DTScale
 };
 
 
@@ -868,7 +991,13 @@ const PatchConsts gs1_StringEnsembleI = {
     {0, 0, 0, 0},               // IL
     {0, 0, 0, 0},               // SL
     {0, 0},                     // FMmode
-    "String Ens I"
+    "String Ens I",
+    // Double-Stack: breitester Satz → maximale Verstimmung + gestaffelter
+    // Layer-Attack für üppiges Streicher-Ensemble.
+    {12.0f, -12.0f, 9.0f, -9.0f}, // DS_Detune (cents)
+    1.0f, 1.0f,                   // DS_MixBase : DS_MixLayer
+    {0.65f, 0.70f, 0.80f, 0.80f}, // DS_ATScale
+    {1.05f, 1.05f, 1.0f, 1.0f}    // DS_DTScale
 };
 
 
@@ -926,7 +1055,12 @@ const PatchConsts gs1_BrassI = {
     {0, 0, 0, 0},                   // IL
     {252, 252, 175, 170},           // SL: Carrier voll, Modulatoren auf warmes Sustain
     {1, 0},                         // FMmode: PI/2 (Stack 1 Buzz) + NORM (Stack 2 Body)
-    "Brass I"
+    "Brass I",
+    // Double-Stack: Layer etwas lauter (8:11 wie zuvor), Carrier-Swell versetzt.
+    {6.0f, -6.0f, 9.0f, -9.0f},  // DS_Detune (cents)
+    8.0f, 11.0f,                 // DS_MixBase : DS_MixLayer
+    {0.80f, 0.80f, 1.0f, 1.0f},  // DS_ATScale
+    {1.0f, 1.0f, 1.10f, 1.10f}   // DS_DTScale
 };
 
 
@@ -981,7 +1115,12 @@ const PatchConsts gs1_BrassII = {
     {0, 0, 0, 0},                   // IL
     {252, 252, 185, 180},           // SL: Carrier voll, Modulatoren auf mittleres Sustain
     {1, 1},                         // FMmode: PI/2 auf beiden Stacks → heller Trompeten-Buzz
-    "Brass II"
+    "Brass II",
+    // Double-Stack: Trompete → breiter, Layer minimal betont, gestaffelter Swell.
+    {7.0f, -7.0f, 10.0f, -9.0f}, // DS_Detune (cents)
+    1.0f, 1.10f,                 // DS_MixBase : DS_MixLayer
+    {0.85f, 0.85f, 1.0f, 1.0f},  // DS_ATScale
+    {1.0f, 1.0f, 1.10f, 1.10f}   // DS_DTScale
 };
 
 
@@ -1036,7 +1175,12 @@ const PatchConsts gs1_SynthBrassIII = {
     {0, 0, 0, 0},                   // IL
     {252, 252, 155, 150},           // SL: Carrier voll, Modulatoren niedriger = mehr Brightness-Decay
     {1, 1},                         // FMmode: PI/2 auf beiden Stacks
-    "Synth Brass III"
+    "Synth Brass III",
+    // Double-Stack: breiter Jupiter-/JX-Synthbrass → größte Brass-Verstimmung.
+    {9.0f, -9.0f, 11.0f, -10.0f}, // DS_Detune (cents)
+    1.0f, 1.10f,                  // DS_MixBase : DS_MixLayer
+    {0.80f, 0.80f, 1.0f, 1.0f},   // DS_ATScale
+    {1.0f, 1.0f, 1.05f, 1.05f}    // DS_DTScale
 };
 
 
@@ -1116,7 +1260,13 @@ const PatchConsts gs1_ElectronicOrganI = {
     {0, 0, 0, 0},               // IL
     {255, 255, 255, 255},       // SL: max (unbenutzt bei DTE=0, aber konsistent)
     {0, 0},                     // FMmode
-    "Electronic Org I"
+    "Electronic Org I",
+    // Double-Stack: Rotary-/Leslie-Chorus durch reine Verstimmung
+    // (Orgel hält Pegel, daher keine Envelope-Skalierung).
+    {8.0f, -8.0f, 7.0f, -7.0f},  // DS_Detune (cents)
+    1.0f, 1.0f,                  // DS_MixBase : DS_MixLayer
+    {1.0f, 1.0f, 1.0f, 1.0f},    // DS_ATScale
+    {1.0f, 1.0f, 1.0f, 1.0f}     // DS_DTScale
 };
 
 
@@ -1196,7 +1346,12 @@ const PatchConsts gs1_ElectronicOrganII = {
     {0, 0, 0, 0},               // IL
     {255, 255, 255, 255},       // SL: max (unbenutzt bei DTE=0, aber konsistent)
     {0, 0},                     // FMmode
-    "Electronic OrgII"
+    "Electronic OrgII",
+    // Double-Stack: reichere Orgel → etwas breiterer Rotary-Chorus.
+    {9.0f, -9.0f, 8.0f, -8.0f},  // DS_Detune (cents)
+    1.0f, 1.0f,                  // DS_MixBase : DS_MixLayer
+    {1.0f, 1.0f, 1.0f, 1.0f},    // DS_ATScale
+    {1.0f, 1.0f, 1.0f, 1.0f}     // DS_DTScale
 };
 
 
@@ -1280,7 +1435,13 @@ const PatchConsts gs1_PipeOrgan = {
     {0, 0, 0, 0},               // IL
     {240, 240, 240, 240},       // SL: stabiles Sustain bei vollem Pegel
     {0, 0},                     // FMmode: NORM/NORM
-    "Pipe Organ"
+    "Pipe Organ",
+    // Double-Stack: zweites Register leicht verstimmt → lebendige Pfeifen-
+    // Schwebung (Winddruck), aber präziser als die E-Orgeln.
+    {7.0f, -7.0f, 6.0f, -6.0f},  // DS_Detune (cents)
+    1.0f, 1.0f,                  // DS_MixBase : DS_MixLayer
+    {1.0f, 1.0f, 1.0f, 1.0f},    // DS_ATScale
+    {1.0f, 1.0f, 1.0f, 1.0f}     // DS_DTScale
 };
 
 

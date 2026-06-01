@@ -56,6 +56,33 @@ Two such FM modules run in parallel — 4 operators total per voice (2 Carriers 
   - `PI` — modulator with full self-feedback
   - `CROSS` — cross-modulation between stacks
 
+### Double Stack (Layer Engine)
+
+The original GS1 has a **Double Stack** switch that engages a second, independent 4-operator FM stack per voice. This fork extends it from a simple "voice doubler" into a full **per-preset layer engine** — the second stack can either thicken the primary sound (chorus) or contribute a completely separate sound layer (e.g. a hammer/pluck transient added on top of a sustained body).
+
+Two mix modes are selectable per preset via `DS_MixMode`:
+
+| Mode | Value | Behaviour |
+|------|-------|-----------|
+| **BLEND** | `0` | Stack 2 is a slightly detuned clone of stack 1, averaged in (`(base·wB + layer·wL)/(wB+wL)`) — a chorus/ensemble thickening. Used by the sustained voices (Strings, Brass, Organs). |
+| **ADD** | `1` | Stack 2 is an *independent* layer summed on top of stack 1 at full level (`base·wB + layer·wL`) — typically a short attack transient. Used by the percussive voices (Harpsichords, Clavichord, Vibraphone, Celeste, Pianos). |
+
+In ADD mode the layer is a self-contained second patch with its own ratios, FM routing, envelopes, and keyboard scaling. Because it is summed rather than averaged, the primary body is left untouched and only the attack/transient character is enriched. For example the Acoustic Piano adds a soft felt-hammer thump, while the Harpsichords add a low, woody key-mechanism *thunk* that contrasts with the bright native pluck.
+
+All layer parameters are **backward-compatible** via sentinel defaults — a preset that sets none of them behaves exactly as the original single-stack patch.
+
+| Parameter | Description |
+|-----------|-------------|
+| `DS_Ratio[4]` | Operator frequency ratios for stack 2. `≤ 0` ⇒ inherit stack 1's `Ratio[]`. |
+| `DS_FMmode[2]` | FM routing for the two stack-2 pairs. `< 0` ⇒ inherit stack 1's `FMmode[]`. |
+| `DS_LevelDb[4]` | Per-operator level offset in dB (carriers = loudness, modulators = brightness / FM index). |
+| `DS_ATScale[4]` / `DS_DTScale[4]` | Attack-/decay-time scalers relative to stack 1's envelopes. |
+| `DS_Detune[4]` | Per-operator detune for BLEND-mode chorus width. |
+| `DS_MixBase` / `DS_MixLayer` | Mix weights for stack 1 (base) and stack 2 (layer). |
+| `DS_ModKbdDb` | Modulator attenuation per octave above C2 — keeps high notes from turning metallic. |
+| `DS_DTKbdTrack` | Exponent on the keyboard decay-tracking factor (`1.0` = follow stack 1, `0` = flat) — keeps transient length uniform across the keyboard. |
+| `DS_MixMode` | `0` = BLEND (chorus), `1` = ADD (layer). |
+
 ### Voice Engine
 - **16-voice polyphony** with intelligent voice stealing:
   1. Silent voices first
@@ -140,7 +167,8 @@ fmGenSample()
     ├── Envelope Generator (Attack → Decay → Sustain → Release)
     ├── Tremolo attenuation (log-domain, carriers only)
     ├── Phase accumulator update (+ Vibrato pitch shift)
-    └── FM operator computation (NORM / PI/2 / PI / CROSS)
+    ├── FM operator computation (NORM / PI/2 / PI / CROSS)
+    └── Double Stack mix (BLEND chorus / ADD layer) — if enabled
     │
     ▼
 processBlock()

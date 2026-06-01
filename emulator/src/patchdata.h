@@ -31,6 +31,61 @@ struct PatchConsts {
     int SL[4] = {0, 0, 0, 0};           // Sustain Levels (Wichtig für Orgel/Strings!)
     int FMmode[2] = {0, 0};             // Mode für Stack 1 & Stack 2
     char Name[PATCH_NAME_MAX + 1] = {0}; // Patch-Name (max 16 Zeichen + Null)
+
+    // --- Double-Stack-Konfiguration (zuschaltbarer 2. Stack-Pair) ---
+    // Nur aktiv wenn setDoubleStacksOn(true). Steuert, wie sich der
+    // verdoppelte Stack vom Original unterscheidet.
+    //
+    // DS_Detune: Cent-Offset pro Operator (C1,C2,M1,M2), ADDITIV zu Detune[].
+    //   Die CARRIER (C1,C2) müssen verstimmt werden, sonst laufen beide Stacks
+    //   frequenzgleich und es entsteht keine hörbare Schwebung.
+    //   Default = breites Ensemble (~±7 Cent Carrier, ±9 Cent Modulator).
+    float DS_Detune[4] = {7.0f, -7.0f, 9.0f, -9.0f};
+    // Mix-Gewichte Basis-Stack : Layer-Stack (Ausgabe wird normiert).
+    float DS_MixBase  = 1.0f;
+    float DS_MixLayer = 1.0f;
+    // Envelope-Skalierung für Stack 2 (1.0 = identisch zu Stack 1).
+    // >1 = schneller (Attack/Decay), <1 = langsamer → gibt der Schicht ein
+    // Eigenleben (z.B. langsamerer Layer-Attack für Streicher-Swell).
+    float DS_ATScale[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float DS_DTScale[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    // --- Layer-Modus: Stack 2 als EIGENSTÄNDIGE Klangschicht ---
+    // Macht aus dem Double-Stack mehr als nur Chorus: eigene Ratios/Topologie
+    // → z.B. ein kurzer Hammer-Attack-Layer unter einem sauberen Body.
+    //
+    // DS_Ratio: eigene Operator-Ratios (C1,C2,M1,M2) für Stack 2.
+    //   Wert <= 0  → erbt Ratio[] von Stack 1 (= Chorus-Verhalten, default).
+    float DS_Ratio[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    // DS_FMmode: eigene FM-Topologie für Stack 2 (Stack-1- & Stack-2-Pair).
+    //   Wert < 0   → erbt FMmode[] von Stack 1 (default).
+    int DS_FMmode[2] = {-1, -1};
+    // DS_LevelDb: Pegel-Offset pro Operator für Stack 2 in dB
+    //   (negativ = leiser). 0 = unverändert (default). Bei Carriern wirkt es
+    //   auf die Lautstärke, bei Modulatoren auf den FM-Index (Helligkeit).
+    float DS_LevelDb[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    // DS_ModKbdDb: zusätzliche Dämpfung der LAYER-Modulatoren (M1,M2) pro Oktave
+    //   OBERHALB von C2 (KNOTE 15), in dB. Reduziert den FM-Index (Helligkeit)
+    //   zu hohen Tönen hin, damit der Anschlag nicht "metallisch" wird: seine
+    //   spektrale Helligkeit steigt dann NICHT proportional mit der Tonhöhe
+    //   (natürlicher Filzhammer statt fest mitskalierender Bite).
+    //   0 = aus (default, rückwärtskompatibel). Wirkt nur auf Stack 2.
+    float DS_ModKbdDb = 0.0f;
+    // DS_DTKbdTrack: wie stark die LAYER-Decayzeit der Tastatur folgt (Exponent
+    //   auf den Keyboard-Faktor). Wirkt NUR auf Stack 2.
+    //   1.0 = exakt wie Stack 1 (tiefe Töne lang, hohe sehr kurz) — default,
+    //         rückwärtskompatibel.
+    //   0.0 = keine Tastaturverfolgung → überall gleich lange Klick-Transiente.
+    //   ~0.3–0.5 = gleichmäßiger Anschlag über die Tastatur (kein "Bambus" in
+    //         der Tiefe, kein "Tick/Zischen" in der Höhe).
+    float DS_DTKbdTrack = 1.0f;
+    // DS_MixMode: wie Stack 2 in die Summe eingeht.
+    //   0 = BLEND  (Mittelwert (base*wB + layer*wL)/(wB+wL)) → Chorus, default.
+    //               Gleichlauter Zweitstack ohne Übersteuerung.
+    //   1 = ADD    (base*wB + layer*wL, geclamped) → echter Layer. Der Grundklang
+    //               bleibt auf vollem Pegel, die (kurze) Layer-Schicht wird
+    //               oben drauf addiert (Hammer-Bite, Anschlags-Transient).
+    int DS_MixMode = 0;
 };
 
 // E-Piano 1

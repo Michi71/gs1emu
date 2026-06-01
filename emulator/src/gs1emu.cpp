@@ -50,6 +50,174 @@ static int lookupExp(int val) {
   return result >> 4;
 }
 
+static int renderStackPair(const int pae[4], const int amp[4], const int fmMode[2],
+                           int& m1, int& m2,
+                           int& m1old1, int& m1old2,
+                           int& m2old1, int& m2old2,
+                           int& ch1, int& ch2) {
+  if (fmMode[0] == 0) {
+    if (amp[2] <= 4094) {
+      m1 = ((lookupExp(lookupSin(pae[2]) + amp[2]) + 8192) >> 2) & 1023;
+    } else {
+      m1 = 4095;
+    }
+    if (amp[0] <= 4094) {
+      ch1 = lookupExp(lookupSin(pae[0] + m1) + amp[0]);
+    } else {
+      ch1 = 0;
+    }
+  }
+  if (fmMode[0] == 1) {
+    if (amp[2] <= 4094) {
+      m1 = (lookupExp(lookupSin(pae[2] + (((m1old1 + m1old2) / 2) >> 3)) + amp[2]) + 8192) >> 4;
+    } else {
+      m1 = 4095;
+    }
+    m1old2 = m1old1;
+    m1old1 = m1;
+    if (amp[0] <= 4094) {
+      ch1 = lookupExp(lookupSin(pae[0] + m1) + amp[0]);
+    } else {
+      ch1 = 0;
+    }
+  }
+  if (fmMode[0] == 2) {
+    if (amp[2] <= 4094) {
+      m1 = (lookupExp(lookupSin(pae[2] + (((m1old1 + m1old2) / 2) >> 2)) + amp[2]) + 8192) >> 4;
+    } else {
+      m1 = 4095;
+    }
+    m1old2 = m1old1;
+    m1old1 = m1;
+    if (amp[0] <= 4094) {
+      ch1 = lookupExp(lookupSin(pae[0] + m1) + amp[0]);
+    } else {
+      ch1 = 0;
+    }
+  }
+  if (fmMode[0] == 3) {
+    if (amp[2] <= 4094) {
+      m1 = ((lookupExp(lookupSin(pae[2] + m2) + amp[2]) + 8192) >> 2) & 1023;
+    } else {
+      m1 = 4095;
+    }
+    if (amp[0] <= 4094) {
+      ch1 = lookupExp(lookupSin(pae[0] + m1) + amp[0]);
+    } else {
+      ch1 = 0;
+    }
+  }
+
+  if (fmMode[1] == 0) {
+    if (amp[3] <= 4094) {
+      m2 = ((lookupExp(lookupSin(pae[3]) + amp[3]) + 8192) >> 2) & 1023;
+    } else {
+      m2 = 4095;
+    }
+    if (amp[1] <= 4094) {
+      ch2 = lookupExp(lookupSin(pae[1] + m2) + amp[1]);
+    } else {
+      ch2 = 0;
+    }
+  }
+  if (fmMode[1] == 1) {
+    if (amp[3] <= 4094) {
+      m2 = (lookupExp(lookupSin(pae[3] + (((m2old1 + m2old2) / 2) >> 3)) + amp[3]) + 8192) >> 4;
+    } else {
+      m2 = 4095;
+    }
+    m2old2 = m2old1;
+    m2old1 = m2;
+    if (amp[1] <= 4094) {
+      ch2 = lookupExp(lookupSin(pae[1] + m2) + amp[1]);
+    } else {
+      ch2 = 0;
+    }
+  }
+  if (fmMode[1] == 2) {
+    if (amp[3] <= 4094) {
+      m2 = (lookupExp(lookupSin(pae[3] + (((m2old1 + m2old2) / 2) >> 2)) + amp[3]) + 8192) >> 4;
+    } else {
+      m2 = 4095;
+    }
+    m2old2 = m2old1;
+    m2old1 = m2;
+    if (amp[1] <= 4094) {
+      ch2 = lookupExp(lookupSin(pae[1] + m2) + amp[1]);
+    } else {
+      ch2 = 0;
+    }
+  }
+  if (fmMode[1] == 3) {
+    if (amp[3] <= 4094) {
+      m2 = ((lookupExp(lookupSin(pae[3] + m1) + amp[3]) + 8192) >> 2) & 1023;
+    } else {
+      m2 = 4095;
+    }
+    if (amp[1] <= 4094) {
+      ch2 = lookupExp(lookupSin(pae[1] + m2) + amp[1]);
+    } else {
+      ch2 = 0;
+    }
+  }
+
+  return ch1 + ch2;
+}
+
+// Envelope-Zustandsmaschine für EINEN Operator. Arbeitet auf den übergebenen
+// Arrays, damit Stack 1 und Stack 2 dieselbe Logik mit eigenem State nutzen.
+static void stepEnvelope(int e, int gate, int gateOld, int mode,
+                         int32_t* EA, int32_t* EAx, int32_t* EAo,
+                         int32_t* RS, int32_t* RSx, int* STATE,
+                         const float* AT, const float* DT, const float* RT,
+                         const int* IL, const int* SL) {
+  if (mode != 0) return;
+  if (gateOld == 0 && gate == 1) {
+    STATE[e] = 1;
+    EA[e] = IL[e] << 12;
+  }
+  if (gate == 1 && STATE[e] == 1 && EA[e] < 0xFFFFF) {
+    EA[e] = EA[e] + AT[e];
+    EAx[e] = EA[e];
+    if (EA[e] > 0xFFFFF) EA[e] = 0xFFFFF;
+  }
+  if (gate == 1 && STATE[e] == 1 && EA[e] >= 0xFFFFF) {
+    STATE[e] = 2;
+  }
+  if (gate == 1 && STATE[e] == 2 && EA[e] > SL[e] << 12) {
+    EA[e] = EA[e] - DT[e];
+    if (EA[e] < SL[e] << 12) EA[e] = SL[e] << 12;
+    EAx[e] = int(map(expTable2[int(map(EA[e], SL[e] << 12, 0xFFFFF, 0, 4095))],
+                     0, 4095, SL[e] << 12, 0xFFFFF));
+  }
+  if (gate == 0 && gateOld == 1) {
+    RS[e] = EA[e];
+    RSx[e] = EAx[e];
+  }
+  if (gate == 0 && EA[e] > 0) {
+    EA[e] = EA[e] - RT[e];
+    STATE[e] = 0;
+    if (EA[e] <= 0) EA[e] = 0;
+    if (RS[e] > 0) {
+      EAx[e] = int(map(expTable2[int(map(EA[e], 0, floor(RS[e]), 0, 4095))],
+                       0, 4095, 0, RSx[e]));
+    } else {
+      EAx[e] = 0;
+    }
+  }
+  if (gate == 0 && EAo[e] < (int(EA[e]) & 0xFFFFF)) {
+    EA[e] = 0;
+  }
+  EAo[e] = EA[e];
+}
+
+// Operator-Amplitude aus log-domain Envelope (EAx), Keyboard-Scaling (eg) und
+// Velocity. Geclamped auf 4095 (entspricht "stumm" in renderStackPair).
+static inline int calcAmp(int32_t eax, int eg, int velocity) {
+  int a = (((((int)eax) >> 8) ^ 4095) & 4095) + eg + (velocity << 3);
+  return a >= 4095 ? 4095 : a;
+}
+
 int CGS1Emu::findVoice()
 {
     // 1. Stille Stimme (vollständig inaktiv)
@@ -85,6 +253,9 @@ int CGS1Emu::findVoice()
 // --- Detune ---
 void CGS1Emu::setDetuneMode(DetuneMode mode) { detuneMode = mode; }
 DetuneMode CGS1Emu::getDetuneMode() const    { return detuneMode; }
+
+void CGS1Emu::setDoubleStacksOn(bool on)     { doubleStacksOn = on; }
+bool CGS1Emu::getDoubleStacksOn() const      { return doubleStacksOn; }
 
 // --- Tremolo ---
 void  CGS1Emu::setTremoloOn(bool on)           { tremoloOn = on; }
@@ -153,6 +324,12 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
     voiceState.EAo[i] = 0; // oldaccu
     voiceState.RS[i] = 0;
     voiceState.RSx[i] = 0;
+    voiceState.STATE2[i] = 0;
+    voiceState.EA2[i] = 0;
+    voiceState.EAx2[i] = 0;
+    voiceState.EAo2[i] = 0;
+    voiceState.RS2[i] = 0;
+    voiceState.RSx2[i] = 0;
     voiceState.GATE = 0;
     voiceState.GATEOLD = 0;
     voiceState.Mode = 0;
@@ -160,6 +337,8 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   for (int i = 0; i < 4; i++) {
     voiceState.PAI[i] = 0;
     voiceState.PAE[i] = 0;
+    voiceState.PAI2[i] = 0;
+    voiceState.PAE2[i] = 0;
   }
   voiceState.KNOTE = voiceState.KNOTE - 1;
   voiceState.NOTE = 27.50 * pow(2, (voiceState.KNOTE / (12))); // FROM A1
@@ -191,6 +370,24 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   
   voiceState.FMmode[0] = patch.FMmode[0];
   voiceState.FMmode[1] = patch.FMmode[1];
+  // Stack-2-FM-Topologie: DS_FMmode[i] < 0 → erbt von Stack 1, sonst überschreiben.
+  voiceState.FMmode2[0] = patch.DS_FMmode[0] < 0 ? patch.FMmode[0] : patch.DS_FMmode[0];
+  voiceState.FMmode2[1] = patch.DS_FMmode[1] < 0 ? patch.FMmode[1] : patch.DS_FMmode[1];
+  // Stack-2-Pegel-Offset: dB → Attenuation-Domain (~42.67 Units/dB).
+  // Negatives dB (leiser) ergibt positiven Attenuation-Offset.
+  for (int i = 0; i < 4; i++)
+    voiceState.dsLevelOff[i] = int(-patch.DS_LevelDb[i] * 42.6666667f);
+  // Keyboard-Rolloff der Layer-Modulatoren (M1=idx2, M2=idx3): oberhalb C2
+  // (KNOTE 15) den FM-Index pro Oktave um DS_ModKbdDb dB zurücknehmen → der
+  // Anschlag wird zu hohen Tönen hin weniger hell/metallisch.
+  {
+    float octAboveC2 = (voiceState.KNOTE - 15) / 12.0f;
+    if (octAboveC2 > 0.0f && patch.DS_ModKbdDb > 0.0f) {
+      int kbdAtten = int(patch.DS_ModKbdDb * octAboveC2 * 42.6666667f);
+      voiceState.dsLevelOff[2] += kbdAtten;
+      voiceState.dsLevelOff[3] += kbdAtten;
+    }
+  }
 
   // Calculate phase accumulator control words.
   voiceState.CW[0] = int(
@@ -218,6 +415,41 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
                                              (12)) *
                                   patch.Ratio[3])));
 
+  // Stack-2-Verstimmung: patch-spezifisch in Cent (DS_Detune), → Semitöne.
+  float stack2DetuneSemitones[4] = {
+      patch.DS_Detune[0] * 0.01f, patch.DS_Detune[1] * 0.01f,
+      patch.DS_Detune[2] * 0.01f, patch.DS_Detune[3] * 0.01f};
+  // Effektive Operator-Ratios für Stack 2:
+  //   DS_Ratio[i] > 0  → eigene Ratio (echter Layer, andere Klangfarbe)
+  //   sonst            → erbt Ratio[] von Stack 1 (Chorus-Verhalten, default)
+  float r2[4];
+  for (int i = 0; i < 4; i++)
+    r2[i] = patch.DS_Ratio[i] > 0.0f ? patch.DS_Ratio[i] : float(patch.Ratio[i]);
+  voiceState.CW2[0] = int(
+      pow(2, 28) / (SampleRate / (27.50 *
+                                  pow(2, (voiceState.KNOTE + voiceState.rnd +
+                                          (patch.Detune[0] * 0.01) + stack2DetuneSemitones[0]) /
+                                             (12)) *
+                                  r2[0])));
+  voiceState.CW2[1] = int(
+      pow(2, 28) / (SampleRate / (27.50 *
+                                  pow(2, (voiceState.KNOTE + voiceState.rnd +
+                                          (patch.Detune[1] * 0.01) + stack2DetuneSemitones[1]) /
+                                             (12)) *
+                                  r2[1])));
+  voiceState.CW2[2] = int(
+      pow(2, 28) / (SampleRate / (27.50 *
+                                  pow(2, (voiceState.KNOTE + voiceState.rnd +
+                                          (patch.Detune[2] * 0.01) + stack2DetuneSemitones[2]) /
+                                             (12)) *
+                                  r2[2])));
+  voiceState.CW2[3] = int(
+      pow(2, 28) / (SampleRate / (27.50 *
+                                  pow(2, (voiceState.KNOTE + voiceState.rnd +
+                                          (patch.Detune[3] * 0.01) + stack2DetuneSemitones[3]) /
+                                             (12)) *
+                                  r2[3])));
+
   // in perc mode recalc envelope times depending on note.
   voiceState.AT[0] = patch.ATE[0] * map((voiceState.KNOTE + 1), 1, 88, 1, 4);
   voiceState.AT[1] = patch.ATE[1] * map((voiceState.KNOTE + 1), 1, 88, 1, 4);
@@ -233,6 +465,24 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   voiceState.RT[1] = voiceState.RTE[1] * map((voiceState.KNOTE + 1), 1, 88, 1, 2);
   voiceState.RT[2] = voiceState.RTE[2] * map((voiceState.KNOTE + 1), 1, 88, 1, 2);
   voiceState.RT[3] = voiceState.RTE[3] * map((voiceState.KNOTE + 1), 1, 88, 1, 2);
+
+  // Stack-2-Hüllkurve: gleiche Form, aber patch-spezifisch skaliert →
+  // beide Schichten bewegen sich nicht im Gleichschritt (lebendiger Layer).
+  // Decay-Zeit: eigene Tastaturverfolgung (DS_DTKbdTrack). Der Keyboard-Faktor
+  // wird hier rekonstruiert und mit dem Exponenten abgeflacht, damit der
+  // Layer-Anschlag über die ganze Tastatur gleich lang bleibt (track<1).
+  const double kbdMul[4] = {
+      map((voiceState.KNOTE + 1), 1, 88, 0.5, 3),
+      map((voiceState.KNOTE + 1), 1, 88, 0.5, patch.DTE1Scaling),
+      map((voiceState.KNOTE + 1), 1, 88, 0.5, 3),
+      map((voiceState.KNOTE + 1), 1, 88, 0.5, 3)};
+  for (int i = 0; i < 4; i++) {
+    voiceState.AT2[i] = voiceState.AT[i] * patch.DS_ATScale[i];
+    // track==1 → pow(kbdMul,1)=kbdMul → DT2 == DT*scale (identisch zu vorher).
+    float trackedMul = powf((float)kbdMul[i], patch.DS_DTKbdTrack);
+    voiceState.DT2[i] = voiceState.DTE[i] * trackedMul * patch.DS_DTScale[i];
+    voiceState.RT2[i] = voiceState.RT[i];
+  }
 
   // calc operator volume scaler depending on note index in scaler array.
   voiceState.EG2 =
@@ -266,98 +516,64 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
 
   voiceState.CH1 = 0;
   voiceState.CH2 = 0;
+  voiceState.CH1b = 0;
+  voiceState.CH2b = 0;
   voiceState.M1 = 0;
   voiceState.M2 = 0;
+  voiceState.M1b = 0;
+  voiceState.M2b = 0;
   voiceState.M1old1 = 0;
   voiceState.M1old2 = 0;
   voiceState.M2old1 = 0;
   voiceState.M2old2 = 0;
+  voiceState.M1bold1 = 0;
+  voiceState.M1bold2 = 0;
+  voiceState.M2bold1 = 0;
+  voiceState.M2bold2 = 0;
 
   voiceState.GATENEW = 1;
 }
 
 int CGS1Emu::fmGenSample(VoiceState &voiceState) {
+  const int gate = voiceState.GATE;
+  const int gateOld = voiceState.GATEOLD;
   for (int e = 0; e < 4; e++) {
-    if (voiceState.Mode == 0) {
-      if (voiceState.GATEOLD == 0 && voiceState.GATE == 1) {
-        voiceState.STATE[e] = 1;
-        voiceState.EA[e] = voiceState.IL[e] << 12;
-      }
-      if (voiceState.GATE == 1 && voiceState.STATE[e] == 1 &&
-          voiceState.EA[e] < 0xFFFFF) {
-        voiceState.EA[e] = voiceState.EA[e] + voiceState.AT[e];
-        voiceState.EAx[e] = voiceState.EA[e];
-        if (voiceState.EA[e] > 0xFFFFF) {
-          voiceState.EA[e] = 0xFFFFF;
-        }
-      }
-      if (voiceState.GATE == 1 && voiceState.STATE[e] == 1 &&
-          voiceState.EA[e] >= 0xFFFFF) {
-        voiceState.STATE[e] = 2;
-      }
-      if (voiceState.GATE == 1 && voiceState.STATE[e] == 2 &&
-          voiceState.EA[e] > voiceState.SL[e] << 12) {
-        voiceState.EA[e] = voiceState.EA[e] - voiceState.DT[e];
-        if (voiceState.EA[e] < voiceState.SL[e] << 12) {
-          voiceState.EA[e] = voiceState.SL[e] << 12;
-        }
-        voiceState.EAx[e] =
-            int(map(expTable2[int(
-                        map(voiceState.EA[e], voiceState.SL[e] << 12, 0xFFFFF, 0, 4095))],
-                    0, 4095, voiceState.SL[e] << 12, 0xFFFFF));
-      }
-      if (voiceState.GATE == 0 && voiceState.GATEOLD == 1) {
-        voiceState.RS[e] = voiceState.EA[e];
-        voiceState.RSx[e] = voiceState.EAx[e];
-      }
-      if (voiceState.GATE == 0 && voiceState.EA[e] > 0) {
-        voiceState.EA[e] = voiceState.EA[e] - voiceState.RT[e];
-        voiceState.STATE[e] = 0;
-        if (voiceState.EA[e] <= 0) {
-          voiceState.EA[e] = 0;
-        }
-        // Guard: RS[e]==0 wenn Note losgelassen wird bevor Attack startet
-        // → Division durch Null in map() vermeiden.
-        if (voiceState.RS[e] > 0) {
-          voiceState.EAx[e] =
-              int(map(expTable2[int(map(voiceState.EA[e], 0,
-                                        floor(voiceState.RS[e]), 0, 4095))],
-                      0, 4095, 0, voiceState.RSx[e]));
-        } else {
-          voiceState.EAx[e] = 0;
-        }
-      }
-      if (voiceState.GATE == 0 &&
-          voiceState.EAo[e] < (int(voiceState.EA[e]) & 0xFFFFF)) {
-        voiceState.EA[e] = 0;
-      }
-      voiceState.EAo[e] = voiceState.EA[e];
+    stepEnvelope(e, gate, gateOld, voiceState.Mode,
+                 voiceState.EA, voiceState.EAx, voiceState.EAo,
+                 voiceState.RS, voiceState.RSx, voiceState.STATE,
+                 voiceState.AT, voiceState.DT, voiceState.RT,
+                 voiceState.IL, voiceState.SL);
+    if (doubleStacksOn) {
+      // Stack 2 nutzt eigene Envelope-States, aber dasselbe Gate und
+      // dieselben Keyboard-/Velocity-Skalierungen (EG*, Velocity).
+      stepEnvelope(e, gate, gateOld, voiceState.Mode,
+                   voiceState.EA2, voiceState.EAx2, voiceState.EAo2,
+                   voiceState.RS2, voiceState.RSx2, voiceState.STATE2,
+                   voiceState.AT2, voiceState.DT2, voiceState.RT2,
+                   voiceState.IL, voiceState.SL);
     }
   }
   voiceState.GATEOLD = voiceState.GATE;
   voiceState.GATE = voiceState.GATENEW;
 
   // Operator volume is calculated from scaled volume and velocity.
-  voiceState.AMP[2] = ((((((int)floor(voiceState.EAx[2]) >> 8) ^ 4095) & 4095) +
-                        int(voiceState.EG2))
-                       << 0) +
-                      (int(voiceState.Velocity) << 3);
-  voiceState.AMP[1] = ((((((int)floor(voiceState.EAx[1]) >> 8) ^ 4095) & 4095) +
-                        int(voiceState.EG1))
-                       << 0) +
-                      (int(voiceState.Velocity) << 3);
-  voiceState.AMP[3] = ((((((int)floor(voiceState.EAx[3]) >> 8) ^ 4095) & 4095) +
-                        int(voiceState.EG3))
-                       << 0) +
-                      (int(voiceState.Velocity) << 3);
-  voiceState.AMP[0] = ((((((int)floor(voiceState.EAx[0]) >> 8) ^ 4095) & 4095) +
-                        int(voiceState.EG0))
-                       << 0) +
-                      (int(voiceState.Velocity) << 3);
-  for (int check = 0; check < 4;
-       check++) { // Make sure amplitude does not go out of range.
-    if (voiceState.AMP[check] >= 4095) {
-      voiceState.AMP[check] = 4095;
+  const int vel = int(voiceState.Velocity);
+  voiceState.AMP[2] = calcAmp(voiceState.EAx[2], int(voiceState.EG2), vel);
+  voiceState.AMP[1] = calcAmp(voiceState.EAx[1], int(voiceState.EG1), vel);
+  voiceState.AMP[3] = calcAmp(voiceState.EAx[3], int(voiceState.EG3), vel);
+  voiceState.AMP[0] = calcAmp(voiceState.EAx[0], int(voiceState.EG0), vel);
+
+  if (doubleStacksOn) {
+    // Stack 2 teilt sich Keyboard-Scaling (EG*) und Velocity, hat aber durch
+    // EAx2 eine eigene Hüllkurve.
+    voiceState.AMP2[2] = calcAmp(voiceState.EAx2[2], int(voiceState.EG2), vel);
+    voiceState.AMP2[1] = calcAmp(voiceState.EAx2[1], int(voiceState.EG1), vel);
+    voiceState.AMP2[3] = calcAmp(voiceState.EAx2[3], int(voiceState.EG3), vel);
+    voiceState.AMP2[0] = calcAmp(voiceState.EAx2[0], int(voiceState.EG0), vel);
+    // Pegel-Offset pro Operator (DS_LevelDb) anwenden, in [0,4095] clampen.
+    for (int i = 0; i < 4; i++) {
+      int a = voiceState.AMP2[i] + voiceState.dsLevelOff[i];
+      voiceState.AMP2[i] = a < 0 ? 0 : (a > 4095 ? 4095 : a);
     }
   }
 
@@ -367,6 +583,10 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
   if (tremoloAtten > 0) {
       voiceState.AMP[0] = std::min(voiceState.AMP[0] + tremoloAtten, 4094);
       voiceState.AMP[1] = std::min(voiceState.AMP[1] + tremoloAtten, 4094);
+      if (doubleStacksOn) {
+        voiceState.AMP2[0] = std::min(voiceState.AMP2[0] + tremoloAtten, 4094);
+        voiceState.AMP2[1] = std::min(voiceState.AMP2[1] + tremoloAtten, 4094);
+      }
   }
 
   // Update all Phase accumulators..(28bit)
@@ -376,175 +596,39 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
     voiceState.PAI[n] = voiceState.PAI[n] & 0xFFFFFFF;
     voiceState.PAE[n] = voiceState.PAI[n] >> 18;
     voiceState.PAI[n] += (int)(voiceState.CW[n] * (1.0f + vibratoFraction));
+    if (doubleStacksOn) {
+      voiceState.PAI2[n] = voiceState.PAI2[n] & 0xFFFFFFF;
+      voiceState.PAE2[n] = voiceState.PAI2[n] >> 18;
+      voiceState.PAI2[n] += (int)(voiceState.CW2[n] * (1.0f + vibratoFraction));
+    }
   }
 
-  // Following section is routing and operator stack config. 4 modes: norm,
-  // pi/2: half intensity modulator self feedback, pi full mod self feedback and
-  // cross from other stack. CHANNEL1
-  if (voiceState.FMmode[0] == 0) { // NORM
-    if (voiceState.AMP[2] <= 4094) {
-      voiceState.M1 =
-          ((lookupExp(lookupSin(voiceState.PAE[2]) + voiceState.AMP[2]) +
-            8192) >>
-           2) &
-          1023;
-    } else {
-      voiceState.M1 = 4095;
-    }
-    if (voiceState.AMP[0] <= 4094) {
-      voiceState.CH1 =
-          ((lookupExp(lookupSin(voiceState.PAE[0] + voiceState.M1) +
-                      voiceState.AMP[0]))); // 14bit output signed+-
-    } else {
-      voiceState.CH1 = 0;
-    }
+  int baseMix = renderStackPair(voiceState.PAE, voiceState.AMP, voiceState.FMmode,
+                                 voiceState.M1, voiceState.M2,
+                                 voiceState.M1old1, voiceState.M1old2,
+                                 voiceState.M2old1, voiceState.M2old2,
+                                 voiceState.CH1, voiceState.CH2);
+
+  if (!doubleStacksOn) {
+    return baseMix;
   }
-  if (voiceState.FMmode[0] == 1) { // PI/2
-    if (voiceState.AMP[2] <= 4094) {
-      voiceState.M1 =
-          (lookupExp(
-               lookupSin(voiceState.PAE[2] +
-                         (((voiceState.M1old1 + voiceState.M1old2) / 2) >> 3)) +
-               voiceState.AMP[2]) +
-           8192) >>
-          4;
-    } else {
-      voiceState.M1 = 4095;
-    }
-    voiceState.M1old2 = voiceState.M1old1;
-    voiceState.M1old1 = voiceState.M1;
-    if (voiceState.AMP[0] <= 4094) {
-      voiceState.CH1 =
-          ((lookupExp(lookupSin(voiceState.PAE[0] + voiceState.M1) +
-                      voiceState.AMP[0]))); // 14bit output signed+-
-    } else {
-      voiceState.CH1 = 0;
-    }
+
+  int layerMix = renderStackPair(voiceState.PAE2, voiceState.AMP2, voiceState.FMmode2,
+                                 voiceState.M1b, voiceState.M2b,
+                                 voiceState.M1bold1, voiceState.M1bold2,
+                                 voiceState.M2bold1, voiceState.M2bold2,
+                                 voiceState.CH1b, voiceState.CH2b);
+
+  const PatchConsts& patch = *patches[currentPatch];
+  const float wB = patch.DS_MixBase;
+  const float wL = patch.DS_MixLayer;
+  if (patch.DS_MixMode == 1) {
+    // ADD: Grundklang bleibt auf vollem Pegel, Layer wird oben drauf addiert.
+    // (Globales Headroom in processBlock = ~6× Vollaussteuerung pro Stimme.)
+    return int(baseMix * wB + layerMix * wL);
   }
-  if (voiceState.FMmode[0] == 2) { // PI
-    if (voiceState.AMP[2] <= 4094) {
-      voiceState.M1 =
-          (lookupExp(
-               lookupSin(voiceState.PAE[2] +
-                         (((voiceState.M1old1 + voiceState.M1old2) / 2) >> 2)) +
-               voiceState.AMP[2]) +
-           8192) >>
-          4;
-    } else {
-      voiceState.M1 = 4095;
-    }
-    voiceState.M1old2 = voiceState.M1old1;
-    voiceState.M1old1 = voiceState.M1;
-    if (voiceState.AMP[0] <= 4094) {
-      voiceState.CH1 =
-          ((lookupExp(lookupSin(voiceState.PAE[0] + voiceState.M1) +
-                      voiceState.AMP[0]))); // 14bit output signed+-
-    } else {
-      voiceState.CH1 = 0;
-    }
-  }
-  if (voiceState.FMmode[0] == 3) { // CROSS
-    if (voiceState.AMP[2] <= 4094) {
-      voiceState.M1 = ((lookupExp(lookupSin(voiceState.PAE[2] + voiceState.M2) +
-                                  voiceState.AMP[2]) +
-                        8192) >>
-                       2) &
-                      1023; // USE OPPOSITE MOD!
-    } else {
-      voiceState.M1 = 4095;
-    }
-    if (voiceState.AMP[0] <= 4094) {
-      voiceState.CH1 = ((lookupExp(
-          lookupSin(voiceState.PAE[0] + voiceState.M1) + voiceState.AMP[0])));
-    } else {
-      voiceState.CH1 = 0;
-    }
-  }
-  // CHANNEL2
-  if (voiceState.FMmode[1] == 0) { // NORM
-    if (voiceState.AMP[3] <= 4094) {
-      voiceState.M2 =
-          ((lookupExp(lookupSin(voiceState.PAE[3]) + voiceState.AMP[3]) +
-            8192) >>
-           2) &
-          1023;
-    } else {
-      voiceState.M2 = 4095;
-    }
-    if (voiceState.AMP[1] <= 4094) {
-      voiceState.CH2 =
-          ((lookupExp(lookupSin(voiceState.PAE[1] + voiceState.M2) +
-                      voiceState.AMP[1]))); // 14bit output signed+-
-    } else {
-      voiceState.CH2 = 0;
-    }
-  }
-  if (voiceState.FMmode[1] == 1) { // PI/2
-    // Fix: Guard muss AMP[3] (M2) prüfen, nicht AMP[1] (C2)
-    if (voiceState.AMP[3] <= 4094) {
-      voiceState.M2 =
-          (lookupExp(
-               lookupSin(voiceState.PAE[3] +
-                         (((voiceState.M2old1 + voiceState.M2old2) / 2) >> 3)) +
-               voiceState.AMP[3]) +
-           8192) >>
-          4;
-    } else {
-      voiceState.M2 = 4095;
-    }
-    voiceState.M2old2 = voiceState.M2old1;
-    voiceState.M2old1 = voiceState.M2;
-    if (voiceState.AMP[1] <= 4094) {
-      voiceState.CH2 =
-          // Fix: C2 muss von M2 moduliert werden, nicht M1
-          ((lookupExp(lookupSin(voiceState.PAE[1] + voiceState.M2) +
-                      voiceState.AMP[1]))); // 14bit output signed+-
-    } else {
-      voiceState.CH2 = 0;
-    }
-  }
-  if (voiceState.FMmode[1] == 2) { // PI
-    if (voiceState.AMP[3] <= 4094) {
-      voiceState.M2 =
-          (lookupExp(
-               lookupSin(voiceState.PAE[3] +
-                         (((voiceState.M2old1 + voiceState.M2old2) / 2) >> 2)) +
-               voiceState.AMP[3]) +
-           8192) >>
-          4;
-    } else {
-      voiceState.M2 = 4095;
-    }
-    voiceState.M2old2 = voiceState.M2old1;
-    voiceState.M2old1 = voiceState.M2;
-    if (voiceState.AMP[1] <= 4094) {
-      voiceState.CH2 =
-          // Fix: C2 muss von M2 moduliert werden, nicht M1
-          ((lookupExp(lookupSin(voiceState.PAE[1] + voiceState.M2) +
-                      voiceState.AMP[1]))); // 14bit output signed+-
-    } else {
-      voiceState.CH2 = 0;
-    }
-  }
-  if (voiceState.FMmode[1] == 3) { // CROSSMOD
-    if (voiceState.AMP[3] <= 4094) {
-      voiceState.M2 = ((lookupExp(lookupSin(voiceState.PAE[3] + voiceState.M1) +
-                                  voiceState.AMP[3]) +
-                        8192) >>
-                       2) &
-                      1023; // USE OPPOSITE MOD!
-    } else {
-      voiceState.M2 = 4095;
-    }
-    if (voiceState.AMP[1] <= 4094) {
-      voiceState.CH2 = ((lookupExp(
-          lookupSin(voiceState.PAE[1] + voiceState.M2) + voiceState.AMP[1])));
-    } else {
-      voiceState.CH2 = 0;
-    }
-  }
-  return voiceState.CH1 +
-         voiceState.CH2; // Mix two stacks output and send to wave array
+  // BLEND (default): Mittelwert beider Stacks → Chorus ohne Übersteuerung.
+  return int((baseMix * wB + layerMix * wL) / (wB + wL));
 }
 
 CGS1Emu::CGS1Emu()
@@ -701,7 +785,9 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
             sumSample += fmGenSample(vs);
         }
 
-        float sample = map(sumSample, -262144.0f / 6, 262112.0f / 6, -1.0f, 1.0f);
+        // Headroom: Divisor 4.5 statt 6 → ca. -2.5 dB mehr Reserve, damit
+        // dichte Akkorde (v.a. Brass) + EQ/Ensemble nicht übersteuern.
+        float sample = map(sumSample, -262144.0f / 4.5f, 262112.0f / 4.5f, -1.0f, 1.0f);
         sample = _filter.process(sample);
 
         // 3-Band EQ (Bass → Mid → Treble, seriell)

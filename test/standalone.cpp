@@ -215,7 +215,7 @@ int main() {
 
   std::thread inputThread(inputThreadFunc);
 
-  printf("'+'/'-' patch | 'e' ensemble | 'd' detune\n");
+  printf("'+'/'-' patch | 'e' ensemble | 'd' detune | 'x' dbl-stack\n");
   printf("'t' tremolo  | '['/']' speed | '{'/'}' depth\n");
   printf("'v' vibrato  | 'n'/'m' speed | ','/'.' depth\n");
   printf("EQ: 'b'/'B' bass | 'f'/'F' mid | 'h'/'H' treble  (step: 1dB) | 'q' quit\n\n");
@@ -226,6 +226,7 @@ int main() {
 
   bool quit_requested = false;
   bool ensemble = false;
+  bool doubleStacks = false;
 
   // Detune-Reihenfolge wie auf dem originalen GS1-Schalter
   const DetuneMode detuneCycle[] = {
@@ -271,6 +272,12 @@ int main() {
         gs1emu->setDetuneMode(detuneCycle[detuneIndex]);
         SDL_UnlockAudioDevice(sdl_audio);
         printf("Detune    = %s\n", detuneNames[detuneIndex]);
+    } else if (c == 'x') {
+        SDL_LockAudioDevice(sdl_audio);
+        gs1emu->setDoubleStacksOn(!doubleStacks);
+        SDL_UnlockAudioDevice(sdl_audio);
+        doubleStacks = gs1emu->getDoubleStacksOn();
+        printf("DblStack  = %s\n", doubleStacks ? "ON" : "OFF");
     } else if (c == 't') {
         SDL_LockAudioDevice(sdl_audio);
         gs1emu->setTremoloOn(!gs1emu->getTremoloOn());
