@@ -291,6 +291,11 @@ void  CGS1Emu::setEqTreble(float dB) {
 }
 float CGS1Emu::getEqTreble() const { return eqTrebleGain; }
 
+void  CGS1Emu::setMasterVolume(float v) {
+    masterVolume = v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v);
+}
+float CGS1Emu::getMasterVolume() const { return masterVolume; }
+
 int CGS1Emu::getNumPrograms() { return GS1_NUM_PROGRAMS; }
 
 int CGS1Emu::getCurrentProgram() { return currentPatch; }
@@ -389,6 +394,12 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   // Negatives dB (leiser) ergibt positiven Attenuation-Offset.
   for (int i = 0; i < 4; i++)
     voiceState.dsLevelOff[i] = int(-patch.DS_LevelDb[i] * 42.6666667f);
+  // Basis-Stack-Pegel-Offset (BaseLevelDb): wirkt immer, auch ohne Double-Stack.
+  // Modulatoren (idx 2,3) → FM-Index/Helligkeit; Carrier (idx 0,1) → Lautstärke.
+  for (int i = 0; i < 4; i++)
+    voiceState.baseLevelOff[i] = int(-patch.BaseLevelDb[i] * 42.6666667f);
+  // Preset-Ausgangspegel (OutLevelDb) → linearer Gain (powf nur hier im NoteOn).
+  voiceState.outGain = powf(10.0f, patch.OutLevelDb / 20.0f);
   // Keyboard-Rolloff der Layer-Modulatoren (M1=idx2, M2=idx3): oberhalb C2
   // (KNOTE 15) den FM-Index pro Oktave um DS_ModKbdDb dB zurücknehmen → der
   // Anschlag wird zu hohen Tönen hin weniger hell/metallisch.
@@ -581,6 +592,13 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
   voiceState.AMP[3] = calcAmp(voiceState.EAx[3], int(voiceState.EG3), vel);
   voiceState.AMP[0] = calcAmp(voiceState.EAx[0], int(voiceState.EG0), vel);
 
+  // Basis-Stack-Pegel-Offset (BaseLevelDb) anwenden, in [0,4095] clampen.
+  // Wirkt auf Modulatoren als Helligkeit/FM-Index, auf Carrier als Lautstärke.
+  for (int i = 0; i < 4; i++) {
+    int a = voiceState.AMP[i] + voiceState.baseLevelOff[i];
+    voiceState.AMP[i] = a < 0 ? 0 : (a > 4095 ? 4095 : a);
+  }
+
   if (doubleStacksOn) {
     // Stack 2 teilt sich Keyboard-Scaling (EG*) und Velocity, hat aber durch
     // EAx2 eine eigene Hüllkurve.
@@ -628,7 +646,7 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
                                  voiceState.CH1, voiceState.CH2);
 
   if (!doubleStacksOn) {
-    return baseMix;
+    return int(baseMix * voiceState.outGain);
   }
 
   int layerMix = renderStackPair(voiceState.PAE2, voiceState.AMP2, voiceState.FMmode2,
@@ -647,10 +665,10 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
   if (patch.DS_MixMode == 1) {
     // ADD: Grundklang bleibt auf vollem Pegel, Layer wird oben drauf addiert.
     // (Globales Headroom in processBlock = ~6× Vollaussteuerung pro Stimme.)
-    return int(baseMix * wB + layerMix * wL);
+    return int((baseMix * wB + layerMix * wL) * voiceState.outGain);
   }
   // BLEND (default): Mittelwert beider Stacks → Chorus ohne Übersteuerung.
-  return int((baseMix * wB + layerMix * wL) / (wB + wL));
+  return int((baseMix * wB + layerMix * wL) / (wB + wL) * voiceState.outGain);
 }
 
 CGS1Emu::CGS1Emu()
@@ -685,9 +703,9 @@ CGS1Emu::CGS1Emu()
     // GS1 Factory Presets (1)–(16)
     for (int i = 0; i < 16; ++i)
         patches[i] = gs1FactoryPresets[i];
-    // EP-Test-Presets (17)–(20) hinten anhängen → im Standalone durchscrollbar.
-    for (int i = 0; i < GS1_EP_TEST_COUNT; ++i)
-        patches[16 + i] = gs1EpTestPresets[i];
+    // Extended Preset Pack (17)–(36) hinten anhängen → im Standalone durchscrollbar.
+    for (int i = 0; i < GS1_EXTENDED_COUNT; ++i)
+        patches[16 + i] = gs1ExtendedPresets[i];
 
     currentPatch = 0;
 }
@@ -833,6 +851,7 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
         // Headroom: Divisor 4.5 statt 6 → ca. -2.5 dB mehr Reserve, damit
         // dichte Akkorde (v.a. Brass) + EQ/Ensemble nicht übersteuern.
         float sample = map(sumSample, -262144.0f / 4.5f, 262112.0f / 4.5f, -1.0f, 1.0f);
+        sample *= masterVolume;   // globaler Lautstärkeregler (Master-Volume)
         sample = _filter.process(sample);
 
         // 3-Band EQ (Bass → Mid → Treble, seriell)
