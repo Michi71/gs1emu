@@ -110,7 +110,9 @@ const PatchConsts gs1_HarpsichordI = {
     {13.0f, 10.0f, 2.0f, 0.0f},  // DS_LevelDb (laut genug, um durch helle Basis zu kommen)
     4.0f,                        // DS_ModKbdDb: oben weniger metallisch
     0.35f,                       // DS_DTKbdTrack: gleichmäßige Länge
-    1                            // DS_MixMode: ADD
+    1,                           // DS_MixMode: ADD
+    {0.0f, 0.0f, 0.0f, 0.0f},    // BaseLevelDb
+    -4.0f                        // OutLevelDb: war zu heiß/laut → etwas absenken
 };
 
 // --- (2) A-2  Harpsichord III ---
@@ -200,7 +202,9 @@ const PatchConsts gs1_HarpsichordIII = {
     {13.0f, 10.0f, 2.0f, 0.0f},  // DS_LevelDb (laut genug für die helle Basis)
     4.5f,                        // DS_ModKbdDb
     0.35f,                       // DS_DTKbdTrack
-    1                            // DS_MixMode: ADD
+    1,                           // DS_MixMode: ADD
+    {0.0f, 0.0f, 0.0f, 0.0f},    // BaseLevelDb
+    -4.0f                        // OutLevelDb: war zu heiß/laut → etwas absenken
 };
 
 

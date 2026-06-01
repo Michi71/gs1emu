@@ -23,44 +23,73 @@
 
 #include "gs1_presets.h"
 
-// Baut eine EP-Variante: Layer A als Basis, Layer B als DS_-Layer (BLEND).
-// EC-Kurven + DTE/RTE/IL/SL/FMmode werden von gs1_ElectricPianoI geerbt.
+// Baut eine Layer-Variante AUF BASIS eines Familien-Presets.
+//
+// WICHTIG (Lehre aus dem Re-Voicing): Die Klangfarbe eines GS1-Instruments
+// steckt in seinen Operator-RATIOS und Hüllkurven, nicht in generischen
+// Spec-Zahlen. Darum erbt dieser Builder die nativen Ratios/Detune/EC-Kurven/
+// DTE/RTE/IL/SL/FMmode des Basis-Presets KOMPLETT (1:1) und differenziert die
+// Varianten nur über drei musikalisch sinnvolle Achsen:
+//
+//   attackScale   Faktor auf die native Attack-RATE (ATE ist eine Rate pro
+//                 Sample, NICHT eine Zeit!):  <1 = langsamer/weicher Anschlag,
+//                 1.0 = nativ,  >1 = schneller/härter.
+//   bAttackScale  dito für Layer B (Schimmer) — relativ zur nativen Rate.
+//   bDetune       Chorus-Verstimmung von Layer B in Cent (symmetrisch gespreizt).
+//   brightness    Pegel-Offset der MODULATOREN (M1,M2) in dB → FM-Index/Timbre.
+//                 negativ = dunkler/weicher/"holziger", positiv = heller/Bite.
+//                 DIES ist die Hauptachse, um Varianten EINER Familie hörbar zu
+//                 trennen (sonst klingen sie im Sustain fast gleich, weil alle
+//                 denselben Modulator-Peak erreichen).
+//   mixLayer      Mischpegel von Layer B (BLEND/Chorus).
+//   decayScale    Faktor auf die native Decay-RATE (DTE) — >1 = SCHNELLERER
+//                 Decay (kürzerer, perkussiver Ausklang, z.B. Marimba), 1.0 =
+//                 nativ (default). Wirkt auf Basis- und (via Skalierung) Layer.
+//
+// Layer B erbt die nativen Ratios (DS_Ratio<=0 → Stack-1-Ratio) → reiner,
+// verstimmter Chorus auf demselben Klang. So bleibt der Instrumentencharakter
+// erhalten und die Doppelschicht erzeugt Breite/Schimmer statt Fremdklang.
 inline PatchConsts gs1MakeEpDual(
+    const PatchConsts& base,
     const char* name,
-    // Layer A (Hauptklang):
-    float aR0, float aR1, float aR2, float aR3,
-    int   aD0, int   aD1, int   aD2, int   aD3,
-    float aT0, float aT1, float aT2, float aT3, float aDTE,
-    // Layer B (Schimmer):
-    float bR0, float bR1, float bR2, float bR3,
-    int   bD0, int   bD1, int   bD2, int   bD3,
-    float bT0, float bT1, float bT2, float bT3, float bDTE,
-    float mixLayer)
+    float attackScale,    // Layer A: Faktor auf native ATE-Rate
+    float bAttackScale,   // Layer B: Faktor auf native ATE-Rate
+    float bDetune,        // Layer B: Chorus-Verstimmung in Cent
+    float brightness,     // Modulator-Pegel (M1,M2) in dB (Timbre/Helligkeit)
+    float mixLayer,       // Layer-B-Mischpegel
+    float outLevelDb = 0.0f, // Preset-Ausgangspegel in dB (Lautstärke-Angleich)
+    float decayScale = 1.0f) // Faktor auf native Decay-Rate (DTE); >1 = schneller
 {
-  PatchConsts p = gs1_ElectricPianoI; // erbt EC-Kurven + Hüllkurven-Raten
+  PatchConsts p = base; // erbt ALLES (Ratio, Detune, EC, ATE, DTE, RTE, IL, SL, FMmode)
 
-  // --- Layer A → Basis-Stack ---
-  p.Ratio[0] = aR0; p.Ratio[1] = aR1; p.Ratio[2] = aR2; p.Ratio[3] = aR3;
-  p.Detune[0] = aD0; p.Detune[1] = aD1; p.Detune[2] = aD2; p.Detune[3] = aD3;
-  p.ATE[0] = aT0; p.ATE[1] = aT1; p.ATE[2] = aT2; p.ATE[3] = aT3;
-  p.DTE1Scaling = aDTE;
+  // --- Layer A: native Attack-RATE skalieren + Modulator-Helligkeit setzen ---
+  for (int i = 0; i < 4; ++i) p.ATE[i] = base.ATE[i] * attackScale;
+  p.BaseLevelDb[2] = brightness; p.BaseLevelDb[3] = brightness; // M1,M2 = Timbre
+  p.OutLevelDb = outLevelDb;                                    // Ausgangspegel
+  // --- Decay-Rate skalieren (kürzerer Ausklang bei decayScale > 1) ---
+  if (decayScale != 1.0f)
+    for (int i = 0; i < 4; ++i) {
+      int d = int(base.DTE[i] * decayScale + 0.5f);
+      p.DTE[i] = d < 1 ? 1 : d;
+    }
 
-  // --- Layer B → Stack 2 (DS_, BLEND/Chorus) ---
-  p.DS_Ratio[0] = bR0; p.DS_Ratio[1] = bR1; p.DS_Ratio[2] = bR2; p.DS_Ratio[3] = bR3;
-  p.DS_Detune[0] = float(bD0 - aD0); p.DS_Detune[1] = float(bD1 - aD1);
-  p.DS_Detune[2] = float(bD2 - aD2); p.DS_Detune[3] = float(bD3 - aD3);
-  p.DS_ATScale[0] = bT0 / aT0; p.DS_ATScale[1] = bT1 / aT1;
-  p.DS_ATScale[2] = bT2 / aT2; p.DS_ATScale[3] = bT3 / aT3;
-  p.DS_DTScale[0] = 1.0f; p.DS_DTScale[1] = 1.0f;
-  p.DS_DTScale[2] = 1.0f; p.DS_DTScale[3] = 1.0f;
+  // --- Layer B → Stack 2: reiner Chorus auf geerbten Ratios ---
+  for (int i = 0; i < 4; ++i) p.DS_Ratio[i] = 0.0f;  // <=0 → erbt native Ratio
+  // Symmetrisch gespreizte Verstimmung → lebendiges Schweben gegen die Basis.
+  p.DS_Detune[0] = +bDetune;        p.DS_Detune[1] = -bDetune;
+  p.DS_Detune[2] = +bDetune * 1.2f; p.DS_Detune[3] = -bDetune * 1.2f;
+  // AT2 = AT * DS_ATScale = (nativeATE*attackScale) * (bAttackScale/attackScale)
+  //     = nativeATE * bAttackScale  → Layer-B-Attack relativ zur nativen Rate.
+  float atRel = (attackScale != 0.0f) ? (bAttackScale / attackScale) : 1.0f;
+  for (int i = 0; i < 4; ++i) { p.DS_ATScale[i] = atRel; p.DS_DTScale[i] = 1.0f; }
   p.DS_FMmode[0] = -1; p.DS_FMmode[1] = -1;          // erbt NORM von Layer A
-  p.DS_LevelDb[0] = 0.0f; p.DS_LevelDb[1] = 0.0f;
-  p.DS_LevelDb[2] = 0.0f; p.DS_LevelDb[3] = 0.0f;
-  p.DS_ModKbdDb = 0.0f;
-  p.DS_DTKbdTrack = (aDTE > 0.0f) ? (bDTE / aDTE) : 1.0f;
-  p.DS_MixBase = 1.0f;
-  p.DS_MixLayer = mixLayer;
-  p.DS_MixMode = 0;                                   // BLEND/Chorus
+  for (int i = 0; i < 4; ++i) p.DS_LevelDb[i] = 0.0f;
+  p.DS_LevelDb[2] = brightness; p.DS_LevelDb[3] = brightness; // Chorus klanglich angleichen
+  p.DS_ModKbdDb   = 0.0f;
+  p.DS_DTKbdTrack = 1.0f;                            // folgt der Basis-Decay-Verfolgung
+  p.DS_MixBase    = 1.0f;
+  p.DS_MixLayer   = mixLayer;
+  p.DS_MixMode    = 0;                               // BLEND/Chorus
 
   // Name kopieren (max. PATCH_NAME_MAX Zeichen + Null)
   int i = 0;
@@ -70,33 +99,22 @@ inline PatchConsts gs1MakeEpDual(
   return p;
 }
 
-// (17) EP Soft Digital  — weiche, warme Variante, dezenter Schimmer
+//                              base,             name,            aAtt  bAtt  bDet  bright  mix    out
+// (17) EP Soft Digital  — weicher Anschlag, dunkles/warmes Timbre
 inline const PatchConsts gs1_EP1_SoftDigital = gs1MakeEpDual(
-    "EP Soft Digital",
-    1.0f, 1.0f, 2.0f, 4.0f,  0, 4, 2, 3, 1200, 1000, 1800, 700, 1.2f,
-    1.0f, 1.0f, 2.0f, 4.0f,  0, 8, 4, 5, 1100,  900, 1600, 600, 0.8f,
-    0.80f);
+    gs1_ElectricPianoI, "EP Soft Digital",   0.55f, 0.70f,  8.0f, -8.0f, 0.80f, 4.0f);
 
-// (18) EP Clear Digital — klarer, etwas heller, breiterer Detune
+// (18) EP Clear Digital — klarer Anschlag, mittlere Helligkeit
 inline const PatchConsts gs1_EP2_ClearDigital = gs1MakeEpDual(
-    "EP Clear Digital",
-    1.0f, 1.0f, 2.0f, 4.0f,  0,  6, 3,  5, 1100, 900, 1700, 600, 1.3f,
-    1.0f, 1.0f, 2.0f, 4.0f,  0, 12, 8, 10,  900, 700, 1500, 450, 0.9f,
-    0.70f);
+    gs1_ElectricPianoI, "EP Clear Digital",  0.80f, 0.95f, 12.0f, -3.0f, 0.70f, 4.0f);
 
-// (19) EP Hard Digital  — harter Anschlag, kurzer Attack-Spike-Layer
+// (19) EP Hard Digital  — harter, schneller, heller Anschlag (viel Bite)
 inline const PatchConsts gs1_EP3_HardDigital = gs1MakeEpDual(
-    "EP Hard Digital",
-    1.0f, 1.0f, 2.0f, 4.0f,  0,  8,  4,  7, 1000, 800, 1600, 500, 1.4f,
-    1.0f, 1.0f, 2.0f, 4.0f,  0, 14, 10, 12,  700, 500, 1200, 300, 1.0f,
-    0.80f);
+    gs1_ElectricPianoI, "EP Hard Digital",   1.20f, 1.40f, 16.0f, +3.0f, 0.80f, 4.0f);
 
-// (20) EP GS1 Deluxe    — voller Hauptklang + ausgeprägter Charakter-Layer
+// (20) EP GS1 Deluxe    — voll, ausgewogen, breiter Chorus, leicht gedämpft
 inline const PatchConsts gs1_EP4_GS1Deluxe = gs1MakeEpDual(
-    "EP GS1 Deluxe",
-    1.0f, 1.0f, 2.0f, 4.0f,  0,  5,  3,  4, 1200, 900, 1800, 650, 1.3f,
-    1.0f, 1.0f, 2.0f, 4.0f,  0, 14, 10, 12,  800, 600, 1500, 400, 0.85f,
-    0.70f);
+    gs1_ElectricPianoI, "EP GS1 Deluxe",     0.95f, 1.10f, 14.0f, -2.0f, 0.70f, 4.0f);
 
 static constexpr int GS1_EP_TEST_COUNT = 4;
 

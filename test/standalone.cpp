@@ -218,7 +218,8 @@ int main() {
   printf("'+'/'-' patch | 'e' ensemble | 'd' detune | 'x' dbl-stack\n");
   printf("'t' tremolo  | '['/']' speed | '{'/'}' depth\n");
   printf("'v' vibrato  | 'n'/'m' speed | ','/'.' depth\n");
-  printf("EQ: 'b'/'B' bass | 'f'/'F' mid | 'h'/'H' treble  (step: 1dB) | 'q' quit\n\n");
+  printf("EQ: 'b'/'B' bass | 'f'/'F' mid | 'h'/'H' treble  (step: 1dB)\n");
+  printf("'9'/'0' master volume (0.0-2.0) | 'q' quit\n\n");
 
   gs1emu->setCurrentProgram(0);
   printf("Patch %2d: %s\n", gs1emu->getCurrentProgram() + 1,
@@ -364,6 +365,14 @@ int main() {
         float g = std::min(12.0f, gs1emu->getEqTreble() + 1.0f);
         SDL_LockAudioDevice(sdl_audio); gs1emu->setEqTreble(g); SDL_UnlockAudioDevice(sdl_audio);
         printf("EQ Treble = %+.0f dB\n", g);
+    } else if (c == '9') {
+        float v = std::max(0.0f, gs1emu->getMasterVolume() - 0.1f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setMasterVolume(v); SDL_UnlockAudioDevice(sdl_audio);
+        printf("Master Vol = %.1f\n", v);
+    } else if (c == '0') {
+        float v = std::min(2.0f, gs1emu->getMasterVolume() + 0.1f);
+        SDL_LockAudioDevice(sdl_audio); gs1emu->setMasterVolume(v); SDL_UnlockAudioDevice(sdl_audio);
+        printf("Master Vol = %.1f\n", v);
     } else if (c == 'q') {
         quit_requested = true;
         break;

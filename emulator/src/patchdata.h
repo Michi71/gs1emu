@@ -86,6 +86,21 @@ struct PatchConsts {
     //               bleibt auf vollem Pegel, die (kurze) Layer-Schicht wird
     //               oben drauf addiert (Hammer-Bite, Anschlags-Transient).
     int DS_MixMode = 0;
+
+    // BaseLevelDb: Pegel-Offset pro Operator für den BASIS-Stack (Stack 1) in dB.
+    //   Spiegelbild zu DS_LevelDb, wirkt aber IMMER (auch ohne Double-Stack).
+    //   Bei Carriern (C1=0,C2=1) → Lautstärke; bei Modulatoren (M1=2,M2=3) →
+    //   FM-Index = HELLIGKEIT/Timbre. Negativ = dunkler/weicher (weniger
+    //   Obertöne, "holziger"), positiv = heller (mehr Bite).
+    //   0 = unverändert (default, rückwärtskompatibel). Das ist die zentrale
+    //   Achse, um Preset-Varianten EINER Klangfamilie klanglich zu trennen.
+    float BaseLevelDb[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    // OutLevelDb: Ausgangspegel des GESAMTEN Presets in dB (linearer Gain auf
+    //   den fertig gemischten Stimmen-Ausgang). Dient der Lautstärke-Angleichung
+    //   zwischen Presets (z.B. leise EPs anheben, heiße Harpsichords absenken).
+    //   0 = unverändert (default). Positiv = lauter, negativ = leiser.
+    float OutLevelDb = 0.0f;
 };
 
 // E-Piano 1

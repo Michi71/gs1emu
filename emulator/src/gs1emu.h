@@ -2,7 +2,7 @@
 
 #include "delayline.h"
 #include "gs1_presets.h"
-#include "gs1_presets_ep_test.h"   // zusätzliche EP-Test-Presets (Layer-Experimente)
+#include "gs1_presets_extended.h"  // Extended Preset Pack (20 Presets, EP/GP/VB/MB)
 #include <cstdint>
 #include <cstring>
 #include <cmath>
@@ -11,8 +11,8 @@
 #define MAXVOICES 16
 #endif
 
-// Gesamtzahl der Programme: 16 Factory-Presets + zusätzliche Test-Presets.
-static constexpr int GS1_NUM_PROGRAMS = 16 + GS1_EP_TEST_COUNT;
+// Gesamtzahl der Programme: 16 Factory-Presets + Extended Preset Pack.
+static constexpr int GS1_NUM_PROGRAMS = 16 + GS1_EXTENDED_COUNT;
 
 struct GS1BiquadFilter {
     float b0, b1, b2;
@@ -172,6 +172,8 @@ struct VoiceState {
   int AMP2[4] = {255, 0, 255, 255};
   int FMmode2[2] = {0, 0};        // eigene FM-Topologie für Stack 2 (geerbt o. überschrieben)
   int dsLevelOff[4] = {0, 0, 0, 0}; // Pegel-Offset (Attenuation-Domain) pro Operator für Stack 2
+  int baseLevelOff[4] = {0, 0, 0, 0}; // Pegel-Offset (Attenuation-Domain) pro Operator für Stack 1 (BaseLevelDb)
+  float outGain = 1.0f;               // linearer Ausgangs-Gain des Presets (OutLevelDb)
 
   int midiNote = 0;
   bool noteOn = false;
@@ -231,9 +233,14 @@ public:
   void setEqTreble(float dB);        // High shelf @ 6 kHz,  ±12 dB
   float getEqTreble() const;
 
+  // Master-Volume (globaler Ausgangsregler, wie am Original-GS1).
+  // 0.0 = stumm, 1.0 = Einheitsverstärkung (default), bis 2.0 = +6 dB.
+  void setMasterVolume(float v);     // 0.0 – 2.0
+  float getMasterVolume() const;
+
   VoiceState voiceStates[MAXVOICES];
 
-  const PatchConsts* patches[GS1_NUM_PROGRAMS]; // Factory-Presets (1)–(16) + EP-Test-Presets (17)–(20)
+  const PatchConsts* patches[GS1_NUM_PROGRAMS]; // Factory-Presets (1)–(16) + Extended Pack (17)–(36)
   
   int currentPatch = 0;
   int sampleRate;
@@ -278,6 +285,10 @@ private:
   // Berechnung: cents * ln(2)/1200 → lineare Frequenz-Näherung
   static constexpr float kVibratoMaxCents = 30.0f;
   static constexpr float kVibratoCentsToFraction = 0.000578f; // ln(2)/1200
+
+  // Master-Volume (globaler Ausgangs-Gain). volatile: wird vom Main-/UI-Thread
+  // geschrieben und im Audio-Thread (processBlock) gelesen.
+  volatile float masterVolume = 1.0f;
 
   // Detune
   DetuneMode detuneMode = DetuneMode::OFF;

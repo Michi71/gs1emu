@@ -103,6 +103,7 @@ All layer parameters are **backward-compatible** via sentinel defaults — a pre
 | **EQ Bass** | ±12 dB @ 100 Hz | Low shelf filter |
 | **EQ Mid** | ±12 dB @ 600 Hz | Peaking bell filter (Q=1.0) |
 | **EQ Treble** | ±12 dB @ 6 kHz | High shelf filter |
+| **Master Volume** | 0.0–2.0 (1.0 = unity, 2.0 = +6 dB) | Global output gain, like the original GS1 volume slider (`setMasterVolume`) |
 
 #### Detune Modes
 | Mode | Behaviour |
@@ -126,6 +127,33 @@ The 16 factory-programmed voices from the original GS1 card reader:
 | 6 | Celeste | | 14 | Electronic Organ I |
 | 7 | String I | | 15 | Electronic Organ II |
 | 8 | String Ensemble I | | 16 | Pipe Organ |
+
+### Extended Preset Pack (programs 17–36)
+
+A curated 20-preset pack appended after the factory voices (scrollable in the standalone via `+`/`-`). Each preset is built by the `gs1MakeEpDual()` factory in `gs1_presets_extended.h`, which **inherits all native values** (ratios, detune, EC keyboard-scaling curves, envelopes, FM routing) from a category-appropriate factory base — so the instrument's true timbre is preserved — and then differentiates the variants along a few musical axes. The second stack runs as a detuned BLEND/chorus on the inherited voicing.
+
+| # | Category (base preset) | Variants |
+|---|------------------------|----------|
+| 17–24 | **Electric Piano** (`ElectricPianoI`, native ratio 1/1/1/1) | Soft / Clear / Hard / GS1 Deluxe Digital, Warm Pad, Bellish, Chorus Wide, Vintage GS1 |
+| 25–28 | **Grand Piano** (`AcousticPianoI`, native ratio 1/2/1/4) | Soft / Clear / Hammer / GS1 Deluxe |
+| 29–32 | **Vibraphone** (`Vibraphone`, native ratio 1/1/8/8 → metallic) | Soft / Clear / Hard / GS1 Deluxe |
+| 33–36 | **Marimba** (`ClavichordII`, native ratio 1/1/3/4 → woody) | Soft / Clear / Hard / GS1 Deluxe |
+
+`gs1MakeEpDual(base, name, attackScale, bAttackScale, bDetune, brightness, mixLayer, outLevelDb = 0, decayScale = 1)`:
+
+| Axis | Effect |
+|------|--------|
+| `attackScale` | Factor on the native attack **rate** (`ATE` is a per-sample increment, *not* a time): `<1` = slower/softer, `>1` = faster/harder. |
+| `bAttackScale` | Same for the layer-B (chorus) stack. |
+| `bDetune` | Layer-B chorus detune in cents (symmetrically spread). |
+| `brightness` | Modulator (M1/M2) level offset in dB → FM index = **timbre**. Negative = darker/woodier, positive = more bite. The main axis separating variants within a family. |
+| `mixLayer` | Layer-B mix weight (BLEND/chorus). |
+| `outLevelDb` | Whole-preset output level in dB (loudness matching). |
+| `decayScale` | Factor on the native decay **rate** (`DTE`); `>1` = shorter, more percussive tail (e.g. the marimba's quick woody pluck). |
+
+These map onto two general-purpose `PatchConsts` fields usable by any preset:
+- **`BaseLevelDb[4]`** — per-operator level offset for the base stack (modulators = brightness/FM index, carriers = loudness). Always active, mirrors `DS_LevelDb`.
+- **`OutLevelDb`** — per-preset output gain (also used to tame the slightly hot factory Harpsichords).
 
 ---
 
@@ -168,11 +196,14 @@ fmGenSample()
     ├── Tremolo attenuation (log-domain, carriers only)
     ├── Phase accumulator update (+ Vibrato pitch shift)
     ├── FM operator computation (NORM / PI/2 / PI / CROSS)
-    └── Double Stack mix (BLEND chorus / ADD layer) — if enabled
+    ├── Base/layer level offsets (BaseLevelDb / DS_LevelDb)
+    ├── Double Stack mix (BLEND chorus / ADD layer) — if enabled
+    └── Per-preset output gain (OutLevelDb)
     │
     ▼
 processBlock()
     ├── Sum all active voices
+    ├── Master Volume (global output gain)
     ├── Anti-aliasing lowpass (8 kHz, Butterworth)
     ├── 3-Band EQ (Bass → Mid → Treble)
     └── Ensemble (3× modulated delay lines) or Mono
@@ -226,6 +257,7 @@ Connects to a virtual MIDI port named `PicoGS1`. Connect any DAW, sequencer, or 
 | Key | Function |
 |-----|----------|
 | `+` / `-` | Next / previous patch |
+| `x` | Toggle Double Stack (layer engine) |
 | `e` | Toggle Ensemble |
 | `d` | Cycle Detune mode (RANDOM2 → RANDOM1 → OFF → STATIC1 → STATIC2) |
 | `t` | Toggle Tremolo |
@@ -237,6 +269,7 @@ Connects to a virtual MIDI port named `PicoGS1`. Connect any DAW, sequencer, or 
 | `b` / `B` | EQ Bass −1 dB / +1 dB |
 | `f` / `F` | EQ Mid −1 dB / +1 dB |
 | `h` / `H` | EQ Treble −1 dB / +1 dB |
+| `9` / `0` | Master Volume −/+ 0.1 (0.0–2.0) |
 | `q` | Quit |
 
 ---
