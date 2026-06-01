@@ -2,6 +2,7 @@
 
 #include "delayline.h"
 #include "gs1_presets.h"
+#include "gs1_presets_ep_test.h"   // zusätzliche EP-Test-Presets (Layer-Experimente)
 #include <cstdint>
 #include <cstring>
 #include <cmath>
@@ -9,6 +10,9 @@
 #ifndef MAXVOICES
 #define MAXVOICES 16
 #endif
+
+// Gesamtzahl der Programme: 16 Factory-Presets + zusätzliche Test-Presets.
+static constexpr int GS1_NUM_PROGRAMS = 16 + GS1_EP_TEST_COUNT;
 
 struct GS1BiquadFilter {
     float b0, b1, b2;
@@ -229,7 +233,7 @@ public:
 
   VoiceState voiceStates[MAXVOICES];
 
-  const PatchConsts* patches[16];       // GS1 Factory Presets (1)–(16)
+  const PatchConsts* patches[GS1_NUM_PROGRAMS]; // Factory-Presets (1)–(16) + EP-Test-Presets (17)–(20)
   
   int currentPatch = 0;
   int sampleRate;

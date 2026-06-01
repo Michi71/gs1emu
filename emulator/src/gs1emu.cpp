@@ -291,16 +291,18 @@ void  CGS1Emu::setEqTreble(float dB) {
 }
 float CGS1Emu::getEqTreble() const { return eqTrebleGain; }
 
-int CGS1Emu::getNumPrograms() { return 16; }
+int CGS1Emu::getNumPrograms() { return GS1_NUM_PROGRAMS; }
 
 int CGS1Emu::getCurrentProgram() { return currentPatch; }
 
 const char* CGS1Emu::getProgramName(int index) const {
-  if (index < 0 || index >= 16) return "";
+  if (index < 0 || index >= GS1_NUM_PROGRAMS) return "";
   return patches[index]->Name;
 }
 
 void CGS1Emu::setCurrentProgram(int index) {
+  if (index < 0) index = 0;
+  else if (index >= GS1_NUM_PROGRAMS) index = GS1_NUM_PROGRAMS - 1;
   currentPatch = index;
 }
 
@@ -683,6 +685,9 @@ CGS1Emu::CGS1Emu()
     // GS1 Factory Presets (1)–(16)
     for (int i = 0; i < 16; ++i)
         patches[i] = gs1FactoryPresets[i];
+    // EP-Test-Presets (17)–(20) hinten anhängen → im Standalone durchscrollbar.
+    for (int i = 0; i < GS1_EP_TEST_COUNT; ++i)
+        patches[16 + i] = gs1EpTestPresets[i];
 
     currentPatch = 0;
 }
