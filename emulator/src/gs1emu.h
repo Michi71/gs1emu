@@ -83,10 +83,16 @@ struct GS1BiquadFilter {
     float process(float input) {
         float output = b0 * input + b1 * x1 + b2 * x2
                      - a1 * y1 - a2 * y2;
-        
+
+        // Denormal-Schutz: klingt das Signal in die Stille aus, können die
+        // Zustände (y1/y2) denormal werden → massive CPU-Spikes auf x86/ARM,
+        // was die Echtzeit-Garantie im Audio-Callback verletzt. Sehr kleine
+        // Beträge hart auf 0 ziehen (klangneutral, weit unter -200 dBFS).
+        if (std::fabs(output) < 1.0e-18f) output = 0.0f;
+
         x2 = x1; x1 = input;
         y2 = y1; y1 = output;
-        
+
         return output;
     }
     
@@ -167,6 +173,10 @@ struct VoiceState {
   bool noteOn = false;
   bool sustaining = false;
   uint32_t noteAge = 0;
+
+  // Patch, mit dem diese Stimme angeschlagen wurde. Bei noteOn gesetzt, damit
+  // ein späterer Programmwechsel die klingende Stimme nicht rückwirkend ändert.
+  const PatchConsts* srcPatch = nullptr;
 };
 
 class CGS1Emu {

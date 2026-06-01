@@ -15,7 +15,6 @@ static double HALF_PI = 1.5707964;
 constexpr float TWO_PI = 6.2831853f;
 
 // Tables
-static int Sin[4096];
 static int logsinTable[256];
 static int expTable[256];
 static int expTable2[4096];
@@ -313,6 +312,12 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   const PatchConsts& patch = *patches[currentPatch];
 
   voiceState.noteOn = true;
+  // Patch-Pointer pro Stimme festhalten: ein Programmwechsel während noch
+  // klingender Noten darf deren Mix-/Layer-Parameter nicht rückwirkend ändern.
+  voiceState.srcPatch = &patch;
+  // Beim (Wieder-)Anschlagen Sustain-Status zurücksetzen — sonst erbt eine
+  // gestohlene, noch sustainende Stimme das Flag und hängt beim Loslassen.
+  voiceState.sustaining = false;
   voiceState.midiNote = KNOTE;
 
   voiceState.KNOTE = KNOTE;
@@ -364,8 +369,13 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   for (int i = 0; i < 4; i++) {
     voiceState.DTE[i] = patch.DTE[i];
     voiceState.RTE[i] = patch.RTE[i];
-    voiceState.IL[i]  = patch.IL[i];
-    voiceState.SL[i]  = patch.SL[i];
+    // IL/SL auf [0,255] klemmen: stepEnvelope rechnet mit (SL<<12) als Grenze
+    // im Bereich bis 0xFFFFF. 256<<12 würde 0xFFFFF erreichen/überschreiten und
+    // die Envelope-Map degenerieren lassen. 255<<12 bleibt sicher darunter.
+    int il = patch.IL[i]; il = il < 0 ? 0 : (il > 255 ? 255 : il);
+    int sl = patch.SL[i]; sl = sl < 0 ? 0 : (sl > 255 ? 255 : sl);
+    voiceState.IL[i]  = il;
+    voiceState.SL[i]  = sl;
   }
   
   voiceState.FMmode[0] = patch.FMmode[0];
@@ -485,30 +495,36 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   }
 
   // calc operator volume scaler depending on note index in scaler array.
+  // Keyboard-Index in die 46-Punkt-EC-Tabellen. KNOTE kann durch MIDI-Noten
+  // außerhalb der 88-Tasten-Range (oder krumme Eingaben) aus dem gültigen
+  // Bereich [0,45] laufen → hart klemmen, sonst Out-of-Bounds-Lesezugriff.
+  int ecIdx = int(floor(voiceState.KNOTE / 2) + 2);
+  if (ecIdx < 0) ecIdx = 0;
+  else if (ecIdx > 45) ecIdx = 45;
   voiceState.EG2 =
       floor(map(pow(map(1, 0, 1, patch.M1EC[0],
-                        map(patch.M1EC[int(floor(voiceState.KNOTE / 2) + 2)], 0,
+                        map(patch.M1EC[ecIdx], 0,
                             1, patch.M1EC[0], patch.M1EC[1])),
                     0.1),
                 0, 1, 1, 0) *
             4095);
   voiceState.EG1 =
       floor(map(pow(map(1, 0, 1, patch.C2EC[0],
-                        map(patch.C2EC[int(floor(voiceState.KNOTE / 2) + 2)], 0,
+                        map(patch.C2EC[ecIdx], 0,
                             1, patch.C2EC[0], patch.C2EC[1])),
                     0.1),
                 0, 1, 1, 0) *
             4095);
   voiceState.EG3 =
       floor(map(pow(map(1, 0, 1, patch.M2EC[0],
-                        map(patch.M2EC[int(floor(voiceState.KNOTE / 2) + 2)], 0,
+                        map(patch.M2EC[ecIdx], 0,
                             1, patch.M2EC[0], patch.M2EC[1])),
                     0.1),
                 0, 1, 1, 0) *
             4095);
   voiceState.EG0 =
       floor(map(pow(map(1, 0, 1, patch.C1EC[0],
-                        map(patch.C1EC[int(floor(voiceState.KNOTE / 2) + 2)], 0,
+                        map(patch.C1EC[ecIdx], 0,
                             1, patch.C1EC[0], patch.C1EC[1])),
                     0.1),
                 0, 1, 1, 0) *
@@ -619,7 +635,11 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
                                  voiceState.M2bold1, voiceState.M2bold2,
                                  voiceState.CH1b, voiceState.CH2b);
 
-  const PatchConsts& patch = *patches[currentPatch];
+  // Mix-/Layer-Parameter aus dem Patch, mit dem DIESE Stimme angeschlagen wurde
+  // (nicht currentPatch) — sonst würde ein Programmwechsel klingende Stimmen
+  // rückwirkend umstimmen. Fallback auf currentPatch, falls (theoretisch) leer.
+  const PatchConsts& patch =
+      voiceState.srcPatch ? *voiceState.srcPatch : *patches[currentPatch];
   const float wB = patch.DS_MixBase;
   const float wL = patch.DS_MixLayer;
   if (patch.DS_MixMode == 1) {
@@ -642,9 +662,6 @@ CGS1Emu::CGS1Emu()
       logsinTable[i] =
           (round(-(log(sin(ceil(i + 0.5) * PI / 256 / 2)) / log(2)) * 256.0));
       expTable[i] = (round((pow(2, i / 256.0) - 1) * 32768));
-    }
-    for (int i = 0; i < 4096; i++) {
-      Sin[i] = int(map(sin(map(i, 0, 4095, 0, HALF_PI)), 0, 1, 0, 5782));
     }
     // expTable2 bleibt Identity: EA ist bereits ein Log-Domain-Wert.
     // lookupExp macht die exp. Umwandlung am Ende des Signalpfads —
@@ -672,6 +689,19 @@ CGS1Emu::CGS1Emu()
 
 void CGS1Emu::Initialize()
 {
+    // Alle Stimmen in den Grundzustand (stumm, kein Gate, kein Sustain) —
+    // sonst laufen bei einem Re-Initialize noch klingende Noten weiter.
+    // Kein Audio-Callback-Kontext → Zuweisung hier unkritisch.
+    for (int v = 0; v < MAXVOICES; ++v)
+        voiceStates[v] = VoiceState();
+    voiceCounter = 0;
+
+    // Filter-/EQ-Zustände leeren (Denormal-/Klick-frei neu starten).
+    _filter.reset();
+    _eqBass.reset();
+    _eqMid.reset();
+    _eqTreble.reset();
+
     delayA.reset();
     delayB.reset();
     delayC.reset();
@@ -730,13 +760,23 @@ void CGS1Emu::processMidi(uint8_t* data, int size)
                 bool sustainOn = (value >= 64);
                 for (int v = 0; v < MAXVOICES; ++v)
                 {
-                    if (sustainOn && voiceStates[v].noteOn)
-                        voiceStates[v].sustaining = true;
-                    else if (!sustainOn && !voiceStates[v].noteOn)
+                    if (sustainOn)
                     {
-                        voiceStates[v].GATENEW = 0;
+                        // Pedal gedrückt: aktuell gehaltene Tasten markieren.
+                        if (voiceStates[v].noteOn)
+                            voiceStates[v].sustaining = true;
+                    }
+                    else
+                    {
+                        // Pedal losgelassen: ALLE Stimmen freigeben.
+                        //  - Taste nicht mehr gehalten + sustaining → jetzt auslösen.
+                        //  - Taste noch gehalten → nur Flag löschen, Ton bleibt;
+                        //    der spätere Key-Up löst dann normal aus.
+                        // (Vorher blieb sustaining bei gehaltenen Tasten stehen →
+                        //  Note hing, wenn das Pedal vor der Taste losgelassen wurde.)
+                        if (voiceStates[v].sustaining && !voiceStates[v].noteOn)
+                            voiceStates[v].GATENEW = 0;
                         voiceStates[v].sustaining = false;
-                        voiceStates[v].noteOn = false;
                     }
                 }
             }
