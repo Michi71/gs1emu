@@ -3,6 +3,9 @@
 #include "delayline.h"
 #include "gs1_presets.h"
 #include "gs1_presets_extended.h"  // Extended Preset Pack (20 Presets, EP/GP/VB/MB)
+#include "gs1_steinway_opt.h"      // sample2gs1: CMA-ES-optimiertes Steinway-Preset
+#include "gs1_wurli_opt.h"         // sample2gs1: CMA-ES-optimiertes Wurlitzer-Preset
+#include "gs1_rhodes_opt.h"        // sample2gs1: CMA-ES-optimiertes Rhodes-Preset
 #include <atomic>
 #include <cstdint>
 #include <cstring>
@@ -13,7 +16,7 @@
 #endif
 
 // Gesamtzahl der Programme: 16 Factory-Presets + Extended Preset Pack.
-static constexpr int GS1_NUM_PROGRAMS = 16 + GS1_EXTENDED_COUNT;
+static constexpr int GS1_NUM_PROGRAMS = 16 + GS1_EXTENDED_COUNT + 3; // +3 = Steinway/Wurli/Rhodes Opt (sample2gs1)
 
 struct GS1BiquadFilter {
     float b0, b1, b2;
@@ -241,7 +244,7 @@ public:
 
   VoiceState voiceStates[MAXVOICES];
 
-  const PatchConsts* patches[GS1_NUM_PROGRAMS]; // Factory-Presets (1)–(16) + Extended Pack (17)–(36)
+  const PatchConsts* patches[GS1_NUM_PROGRAMS]; // Factory (1)–(16) + Extended (17)–(36) + Steinway Opt (37)
 
   int currentPatch = 0;
 

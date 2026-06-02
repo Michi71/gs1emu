@@ -511,11 +511,12 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   voiceState.AT[2] = patch.ATE[2] * map((voiceState.KNOTE + 1), 1, 88, 1, 4);
   voiceState.AT[3] = patch.ATE[3] * map((voiceState.KNOTE + 1), 1, 88, 1, 4);
 
-  voiceState.DT[0] = voiceState.DTE[0] * map((voiceState.KNOTE + 1), 1, 88, 0.5, 3);
+  const float dtk = patch.DTEKbdScale;  // oberer Decay-Keyboard-Faktor (default 3.0)
+  voiceState.DT[0] = voiceState.DTE[0] * map((voiceState.KNOTE + 1), 1, 88, 0.5, dtk);
   voiceState.DT[1] =
       voiceState.DTE[1] * map((voiceState.KNOTE + 1), 1, 88, 0.5, patch.DTE1Scaling);
-  voiceState.DT[2] = voiceState.DTE[2] * map((voiceState.KNOTE + 1), 1, 88, 0.5, 3);
-  voiceState.DT[3] = voiceState.DTE[3] * map((voiceState.KNOTE + 1), 1, 88, 0.5, 3);
+  voiceState.DT[2] = voiceState.DTE[2] * map((voiceState.KNOTE + 1), 1, 88, 0.5, dtk);
+  voiceState.DT[3] = voiceState.DTE[3] * map((voiceState.KNOTE + 1), 1, 88, 0.5, dtk);
   voiceState.RT[0] = voiceState.RTE[0] * map((voiceState.KNOTE + 1), 1, 88, 1, 2);
   voiceState.RT[1] = voiceState.RTE[1] * map((voiceState.KNOTE + 1), 1, 88, 1, 2);
   voiceState.RT[2] = voiceState.RTE[2] * map((voiceState.KNOTE + 1), 1, 88, 1, 2);
@@ -527,10 +528,10 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
   // wird hier rekonstruiert und mit dem Exponenten abgeflacht, damit der
   // Layer-Anschlag über die ganze Tastatur gleich lang bleibt (track<1).
   const double kbdMul[4] = {
-      map((voiceState.KNOTE + 1), 1, 88, 0.5, 3),
+      map((voiceState.KNOTE + 1), 1, 88, 0.5, dtk),
       map((voiceState.KNOTE + 1), 1, 88, 0.5, patch.DTE1Scaling),
-      map((voiceState.KNOTE + 1), 1, 88, 0.5, 3),
-      map((voiceState.KNOTE + 1), 1, 88, 0.5, 3)};
+      map((voiceState.KNOTE + 1), 1, 88, 0.5, dtk),
+      map((voiceState.KNOTE + 1), 1, 88, 0.5, dtk)};
   for (int i = 0; i < 4; i++) {
     voiceState.AT2[i] = voiceState.AT[i] * patch.DS_ATScale[i];
     // track==1 → pow(kbdMul,1)=kbdMul → DT2 == DT*scale (identisch zu vorher).
@@ -737,6 +738,10 @@ CGS1Emu::CGS1Emu()
     // Extended Preset Pack (17)–(36) hinten anhängen → im Standalone durchscrollbar.
     for (int i = 0; i < GS1_EXTENDED_COUNT; ++i)
         patches[16 + i] = gs1ExtendedPresets[i];
+    // sample2gs1: CMA-ES-optimierte Presets als Programme (37)=Steinway, (38)=Wurli, (39)=Rhodes.
+    patches[16 + GS1_EXTENDED_COUNT]     = &gs1_SteinwayOpt;
+    patches[16 + GS1_EXTENDED_COUNT + 1] = &gs1_WurliOpt;
+    patches[16 + GS1_EXTENDED_COUNT + 2] = &gs1_RhodesOpt;
 
     currentPatch = 0;
 }

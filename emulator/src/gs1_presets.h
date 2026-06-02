@@ -88,6 +88,14 @@ struct PatchConsts {
     //   zwischen Presets (z.B. leise EPs anheben, heiße Harpsichords absenken).
     //   0 = unverändert (default). Positiv = lauter, negativ = leiser.
     float OutLevelDb = 0.0f;
+
+    // DTEKbdScale: oberer Endwert des Keyboard-Decay-Scalings für die Operatoren
+    //   C1/M1/M2 (DT[0],[2],[3]). Der Decay-Faktor läuft von 0.5 (tiefste Taste)
+    //   bis DTEKbdScale (höchste Taste). Höher = hohe Töne klingen viel schneller
+    //   aus. 3.0 = Originalverhalten (default, rückwärtskompatibel); kleinere
+    //   Werte (~1.0–1.5) geben hohen Tönen einen längeren, natürlicheren Ausklang
+    //   (z.B. für akustische Klaviere). C2 (DT[1]) nutzt weiter DTE1Scaling.
+    float DTEKbdScale = 3.0f;
 };
 
 // ============================================================

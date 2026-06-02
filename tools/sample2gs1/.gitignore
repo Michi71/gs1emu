@@ -1,0 +1,3 @@
+# Generierte Artefakte (reproduzierbar via analyze.py / optimize.py)
+out/
+*.log
