@@ -738,9 +738,10 @@ CGS1Emu::CGS1Emu()
     // Extended Preset Pack (17)–(36) hinten anhängen → im Standalone durchscrollbar.
     for (int i = 0; i < GS1_EXTENDED_COUNT; ++i)
         patches[16 + i] = gs1ExtendedPresets[i];
-    // sample2gs1: CMA-ES-optimierte Presets als Programme (37)=Steinway, (38)=Wurli.
+    // sample2gs1: CMA-ES-optimierte Presets als Programme (37)=Steinway, (38)=Wurli, (39)=Rhodes.
     patches[16 + GS1_EXTENDED_COUNT]     = &gs1_SteinwayOpt;
     patches[16 + GS1_EXTENDED_COUNT + 1] = &gs1_WurliOpt;
+    patches[16 + GS1_EXTENDED_COUNT + 2] = &gs1_RhodesOpt;
 
     currentPatch = 0;
 }
