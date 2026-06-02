@@ -138,7 +138,7 @@ int MCU_OpenAudio(int deviceIndex, int pageSize, int pageNum) {
   return 1;
 }
 
-void MCU_CloseAudio(void) { SDL_CloseAudio(); }
+void MCU_CloseAudio(void) { SDL_CloseAudioDevice(sdl_audio); sdl_audio = 0; }
 
 static PmStream *midiInStream;
 

@@ -3,6 +3,7 @@
 #include "delayline.h"
 #include "gs1_presets.h"
 #include "gs1_presets_extended.h"  // Extended Preset Pack (20 Presets, EP/GP/VB/MB)
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <cmath>
@@ -241,9 +242,8 @@ public:
   VoiceState voiceStates[MAXVOICES];
 
   const PatchConsts* patches[GS1_NUM_PROGRAMS]; // Factory-Presets (1)–(16) + Extended Pack (17)–(36)
-  
+
   int currentPatch = 0;
-  int sampleRate;
 
   void noteOn(VoiceState& voiceState, int voiceIndex, float KNOTE, float Velocity);
   int fmGenSample(VoiceState& voiceState);
@@ -258,41 +258,45 @@ private:
   GS1BiquadFilter _eqBass;
   GS1BiquadFilter _eqMid;
   GS1BiquadFilter _eqTreble;
-  float eqBassGain   = 0.0f;  // dB, ±12
-  float eqMidGain    = 0.0f;  // dB, ±12
-  float eqTrebleGain = 0.0f;  // dB, ±12
+  // Gain-Werte werden vom UI-Thread geschrieben, vom Audio-Thread gelesen
+  // → atomic mit relaxed load (single-writer / single-reader, kurze Latenz).
+  std::atomic<float> eqBassGain{0.0f};
+  std::atomic<float> eqMidGain{0.0f};
+  std::atomic<float> eqTrebleGain{0.0f};
 
   // Ensemble On/Off
-  bool ensembleOn = false;
+  std::atomic<bool> ensembleOn{false};
   uint32_t voiceCounter = 0;
 
   // Tremolo LFO
-  bool  tremoloOn    = false;
+  std::atomic<bool>  tremoloOn{false};
   float tremoloSpeed = 3.0f;   // Hz
   float tremoloDepth = 0.5f;   // 0.0 – 1.0
-  float tremoloPhase = 0.0f;   // aktuelle LFO-Phase (0 – 2π)
-  float tremoloInc   = 0.0f;   // Phase-Inkrement pro Sample
-  int   tremoloAtten = 0;      // aktueller Dämpfungswert (Log-Domain), wird in processBlock berechnet
+  // tremoloInc wird vom UI geändert (setTremoloSpeed) und im Audio-Thread
+  // sample-genau gelesen → atomic.
+  std::atomic<float> tremoloInc{0.0f};
+  float tremoloPhase = 0.0f;   // aktuelle LFO-Phase (0 – 2π), nur Audio-Thread
+  int   tremoloAtten = 0;      // aktueller Dämpfungswert (Log-Domain), nur Audio-Thread
 
   // Vibrato LFO
-  bool  vibratoOn       = false;
-  float vibratoSpeed    = 6.0f;  // Hz
-  float vibratoDepth    = 0.3f;  // 0.0 – 1.0
-  float vibratoPhase    = 0.0f;  // aktuelle LFO-Phase (0 – 2π)
-  float vibratoInc      = 0.0f;  // Phase-Inkrement pro Sample
-  float vibratoFraction = 0.0f;  // aktueller Frequenz-Faktor, wird in processBlock berechnet
+  std::atomic<bool>  vibratoOn{false};
+  float vibratoSpeed = 6.0f;  // Hz
+  float vibratoDepth = 0.3f;  // 0.0 – 1.0
+  std::atomic<float> vibratoInc{0.0f};
+  float vibratoPhase = 0.0f;  // aktuelle LFO-Phase, nur Audio-Thread
+  float vibratoFraction = 0.0f;  // aktueller Frequenz-Faktor, nur Audio-Thread
   // Maximale Pitch-Deviation bei Depth=1.0: ±30 Cent
   // Berechnung: cents * ln(2)/1200 → lineare Frequenz-Näherung
   static constexpr float kVibratoMaxCents = 30.0f;
   static constexpr float kVibratoCentsToFraction = 0.000578f; // ln(2)/1200
 
-  // Master-Volume (globaler Ausgangs-Gain). volatile: wird vom Main-/UI-Thread
-  // geschrieben und im Audio-Thread (processBlock) gelesen.
-  volatile float masterVolume = 1.0f;
+  // Master-Volume (globaler Ausgangs-Gain). atomic: wird vom Main-/UI-Thread
+  // geschrieben, im Audio-Thread (processBlock) gelesen.
+  std::atomic<float> masterVolume{1.0f};
 
   // Detune
-  DetuneMode detuneMode = DetuneMode::OFF;
-  bool doubleStacksOn = false;
+  std::atomic<DetuneMode> detuneMode{DetuneMode::OFF};
+  std::atomic<bool> doubleStacksOn{false};
   // Feste Cent-Offsets für STATIC-Modi: 16 Stimmen symmetrisch um 0 verteilt.
   // Index = Voice-Nummer, Wert in Semitonen (0.01 = 1 Cent).
   // Werte in Semitönen: 0.01 = 1 Cent

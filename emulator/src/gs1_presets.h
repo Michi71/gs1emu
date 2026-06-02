@@ -1,6 +1,94 @@
 #pragma once
 
-#include "patchdata.h"
+static constexpr int PATCH_NAME_MAX = 16;
+
+struct PatchConsts {
+    float Ratio[4];
+    int Detune[4];
+    float C1EC[46];
+    float C2EC[46];
+    float M1EC[46];
+    float M2EC[46];
+    float ATE[4];
+    float DTE1Scaling;
+
+    int DTE[4] = {2, 2, 1, 1};          // Decay Time Rates
+    int RTE[4] = {100, 100, 100, 100};  // Release Time Rates
+    int IL[4] = {0, 0, 0, 0};           // Initial Levels (meist 0)
+    int SL[4] = {0, 0, 0, 0};           // Sustain Levels (Wichtig für Orgel/Strings!)
+    int FMmode[2] = {0, 0};             // Mode für Stack 1 & Stack 2
+    char Name[PATCH_NAME_MAX + 1] = {0}; // Patch-Name (max 16 Zeichen + Null)
+
+    // --- Double-Stack-Konfiguration (zuschaltbarer 2. Stack-Pair) ---
+    // Nur aktiv wenn setDoubleStacksOn(true). Steuert, wie sich der
+    // verdoppelte Stack vom Original unterscheidet.
+    //
+    // DS_Detune: Cent-Offset pro Operator (C1,C2,M1,M2), ADDITIV zu Detune[].
+    //   Die CARRIER (C1,C2) müssen verstimmt werden, sonst laufen beide Stacks
+    //   frequenzgleich und es entsteht keine hörbare Schwebung.
+    //   Default = breites Ensemble (~±7 Cent Carrier, ±9 Cent Modulator).
+    float DS_Detune[4] = {7.0f, -7.0f, 9.0f, -9.0f};
+    // Mix-Gewichte Basis-Stack : Layer-Stack (Ausgabe wird normiert).
+    float DS_MixBase  = 1.0f;
+    float DS_MixLayer = 1.0f;
+    // Envelope-Skalierung für Stack 2 (1.0 = identisch zu Stack 1).
+    // >1 = schneller (Attack/Decay), <1 = langsamer → gibt der Schicht ein
+    // Eigenleben (z.B. langsamerer Layer-Attack für Streicher-Swell).
+    float DS_ATScale[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float DS_DTScale[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    // --- Layer-Modus: Stack 2 als EIGENSTÄNDIGE Klangschicht ---
+    // Macht aus dem Double-Stack mehr als nur Chorus: eigene Ratios/Topologie
+    // → z.B. ein kurzer Hammer-Attack-Layer unter einem sauberen Body.
+    //
+    // DS_Ratio: eigene Operator-Ratios (C1,C2,M1,M2) für Stack 2.
+    //   Wert <= 0  → erbt Ratio[] von Stack 1 (= Chorus-Verhalten, default).
+    float DS_Ratio[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    // DS_FMmode: eigene FM-Topologie für Stack 2 (Stack-1- & Stack-2-Pair).
+    //   Wert < 0   → erbt FMmode[] von Stack 1 (default).
+    int DS_FMmode[2] = {-1, -1};
+    // DS_LevelDb: Pegel-Offset pro Operator für Stack 2 in dB
+    //   (negativ = leiser). 0 = unverändert (default). Bei Carriern wirkt es
+    //   auf die Lautstärke, bei Modulatoren auf den FM-Index (Helligkeit).
+    float DS_LevelDb[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    // DS_ModKbdDb: zusätzliche Dämpfung der LAYER-Modulatoren (M1,M2) pro Oktave
+    //   OBERHALB von C2 (KNOTE 15), in dB. Reduziert den FM-Index (Helligkeit)
+    //   zu hohen Tönen hin, damit der Anschlag nicht "metallisch" wird: seine
+    //   spektrale Helligkeit steigt dann NICHT proportional mit der Tonhöhe
+    //   (natürlicher Filzhammer statt fest mitskalierender Bite).
+    //   0 = aus (default, rückwärtskompatibel). Wirkt nur auf Stack 2.
+    float DS_ModKbdDb = 0.0f;
+    // DS_DTKbdTrack: wie stark die LAYER-Decayzeit der Tastatur folgt (Exponent
+    //   auf den Keyboard-Faktor). Wirkt NUR auf Stack 2.
+    //   1.0 = exakt wie Stack 1 (tiefe Töne lang, hohe sehr kurz) — default,
+    //         rückwärtskompatibel.
+    //   0.0 = keine Tastaturverfolgung → überall gleich lange Klick-Transiente.
+    //   ~0.3–0.5 = gleichmäßiger Anschlag über die Tastatur (kein "Bambus" in
+    //         der Tiefe, kein "Tick/Zischen" in der Höhe).
+    float DS_DTKbdTrack = 1.0f;
+    // DS_MixMode: wie Stack 2 in die Summe eingeht.
+    //   0 = BLEND  (Mittelwert (base*wB + layer*wL)/(wB+wL)) → Chorus, default.
+    //               Gleichlauter Zweitstack ohne Übersteuerung.
+    //   1 = ADD    (base*wB + layer*wL, geclamped) → echter Layer. Der Grundklang
+    //               bleibt auf vollem Pegel, die (kurze) Layer-Schicht wird
+    //               oben drauf addiert (Hammer-Bite, Anschlags-Transient).
+    int DS_MixMode = 0;
+
+    // BaseLevelDb: Pegel-Offset pro Operator für den BASIS-Stack (Stack 1) in dB.
+    //   Spiegelbild zu DS_LevelDb, wirkt aber IMMER (auch ohne Double-Stack).
+    //   Bei Carriern (C1=0,C2=1) → Lautstärke; bei Modulatoren (M1=2,M2=3) →
+    //   FM-Index = HELLIGKEIT/Timbre. Negativ = dunkler/weicher (weniger
+    //   Obertöne, "holziger"), positiv = heller (mehr Bite).
+    //   0 = unverändert (default, rückwärtskompatibel). Das ist die zentrale
+    //   Achse, um Preset-Varianten EINER Klangfamilie klanglich zu trennen.
+    float BaseLevelDb[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    // OutLevelDb: Ausgangspegel des GESAMTEN Presets in dB (linearer Gain auf
+    //   den fertig gemischten Stimmen-Ausgang). Dient der Lautstärke-Angleichung
+    //   zwischen Presets (z.B. leise EPs anheben, heiße Harpsichords absenken).
+    //   0 = unverändert (default). Positiv = lauter, negativ = leiser.
+    float OutLevelDb = 0.0f;
+};
 
 // ============================================================
 // Yamaha GS1 — 16 Factory Presets
@@ -1448,215 +1536,6 @@ const PatchConsts gs1_PipeOrgan = {
     {1.0f, 1.0f, 1.0f, 1.0f}     // DS_DTScale
 };
 
-
-// E PIANO  (DX7 Alg 5, derived from patchEP1)
-const PatchConsts patchE_PIANO = {
-    {0.50, 1.00, 0.50, 18.00},  // C1,C2,M1,M2 Ratios.s.
-    {+0, +3, +2, +0}, // C1,C2,M1,M2 detune in cents +-16 in cents +-16
-    {
-        0.0, 0.65, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-        0.9, 0.9,  0.9, 1,   1,   1,   1,   1,   1,   1,   1,   1,
-        1,   1,    1,   1,   1,   1,   1,   1,   1,   1,   1,   1,
-        0.9, 0.9,  0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8
-    },
-    {
-        0.0, 0.35, 0.2, 0.3, 0.3, 0.4, 0.5, 0.5, 0.6, 0.6, 0.7, 0.7,
-        0.8, 0.8,  0.9, 0.9, 1,   1,   1,   1,   0.9, 0.9, 0.8, 0.7,
-        0.6, 0.5,  0.4, 0.3, 0.2, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
-        0.1, 0.1,  0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1
-    },
-    {   
-        0.0,  0.7,  0.9,  0.9,  0.6,  0.6, 0.6, 0.6, 0.7, 0.7,
-        0.7,  0.8,  0.8,  0.9,  0.9,  1,   0.9, 0.8, 0.8, 0.7,
-        0.7,  0.7,  0.7,  0.6,  0.6,  0.5, 0.5, 0.4, 0.4, 0.3,
-        0.3,  0.2,  0.2,  0.1,  0.1,  0.1, 0.1, 0.1, 0.1, 0.1,
-        0.05, 0.05, 0.05, 0.05, 0.05, 0.05
-    },
-    {
-        0.1, 0.55, 0.9, 0.9, 1,   1,    1,    1,   1,   1,
-        1,   1,    1,   0.9, 0.9, 0.8,  0.8,  0.7, 0.7, 0.7,
-        0.6, 0.6,  0.6, 0.5, 0.5, 0.5,  0.5,  0.5, 0.5, 0.4,
-        0.3, 0.2,  0.1, 0.1, 0.1, 0.05, 0.01, 0.0, 0.0, 0.0,
-        0.0, 0.0,  0.0, 0.0, 0.0, 0.0
-    },
-    {2000, 2000, 4400, 4400}, 
-    3.0
-};
-
-// MARIMBA  (DX7 Alg 28, derived from patchBell)
-const PatchConsts patchMARIMBA = {
-    {1.00, 1.00, 7.00, 5.00},  // C1,C2,M1,M2 Ratios.s → asymmetrisch, spannend
-    {+6, -1, +0, +4}, // C1,C2,M1,M2 detune in cents +-16 → lebendige Schwebung
-
-    // Carrier EC: langsam ausschwingend
-    {
-        0.0, 0.6, 1.0, 1.0, 1.0, 1.0, 0.95, 0.95, 0.9, 0.9,
-        0.85, 0.85, 0.8, 0.8, 0.75, 0.75, 0.7, 0.7, 0.65, 0.65,
-        0.6, 0.6, 0.55, 0.55, 0.5, 0.5, 0.45, 0.45, 0.4, 0.4,
-        0.3, 0.3, 0.2, 0.2, 0.15, 0.15, 0.1, 0.1, 0.07, 0.07,
-        0.05, 0.05, 0.03, 0.03, 0.01, 0.01
-    },
-
-    // Modulator M1EC: starker Anschlag, langes Plateau
-    {
-        0.0, 0.5, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.85, 0.85,
-        0.8, 0.8, 0.75, 0.75, 0.7, 0.7, 0.6, 0.6, 0.5, 0.5,
-        0.4, 0.4, 0.3, 0.3, 0.2, 0.2, 0.15, 0.15, 0.1, 0.1,
-        0.08, 0.08, 0.05, 0.05, 0.03, 0.03, 0.02, 0.02, 0.01, 0.01,
-        0.01, 0.01, 0.01, 0.01, 0.01, 0.01
-    },
-
-    // Modulator M2EC: sanfter Verlauf, Schimmer
-    {
-        0.1, 0.3, 0.6, 0.6, 0.6, 0.6, 0.55, 0.55, 0.5, 0.5,
-        0.45, 0.45, 0.4, 0.4, 0.35, 0.35, 0.3, 0.3, 0.25, 0.25,
-        0.2, 0.2, 0.15, 0.15, 0.1, 0.1, 0.08, 0.08, 0.06, 0.06,
-        0.04, 0.04, 0.03, 0.03, 0.02, 0.02, 0.01, 0.01, 0.005, 0.005,
-        0.005, 0.005, 0.005, 0.005, 0, 0
-    },
-
-    // Modulator M3EC: kurzer metallischer Peak
-    {
-        0.2, 0.8, 1.0, 1.0, 0.9, 0.9, 0.8, 0.8, 0.7, 0.7,
-        0.6, 0.6, 0.5, 0.5, 0.3, 0.3, 0.2, 0.2, 0.1, 0.1,
-        0.05, 0.05, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0
-    },
-
-    {3000, 2500, 3600, 4200},   // ATE: verlängerte Attack/Decay → weiches Einschwingen
-    24.0                        // DTE1Scaling: leichte Anpassung für Detune-Verlauf
-};
-
-// BRASS SECT  (DX7 Alg 22, derived from patchBrass)
-const PatchConsts patchBRASS_SECT = {
-    {1.00, 1.00, 1.00, 1.00},  // C1,C2,M1,M2 Ratios.: leicht gestaffelt, mit Obertonbetonung
-    {+0, -2, +0, +0}, // C1,C2,M1,M2 detune in cents +-16 in Cent: Schwebung und Breite
-    // C1EC – Carrier 1 Envelope Curve
-    {
-        0.0, 0.3, 0.6, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0
-    },
-    // C2EC – Carrier 2 Envelope Curve
-    {
-        0.0, 0.4, 0.7, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0
-    },
-    // M1EC – Modulator 1 Envelope Curve
-    {
-        0.0, 0.7, 0.9, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0
-    },
-    // M2EC – Modulator 2 Envelope Curve
-    {
-        0.0, 0.6, 0.85, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0
-    },
-    {3000, 3000, 3000, 3000},   // ATE – schneller Attack für perkussiven Einschlag
-    1.0                         // DTE1Scaling – volle Dynamik
-};
-
-// GRAND PIAN  (DX7 Alg 16, derived from patchEPiano1)
-const PatchConsts patchGRAND_PIAN = {
-    {0.50, 1.00, 0.50, 5.00},  // C1,C2,M1,M2 Ratios.s: asymmetrisch, simulieren Tine + Resonanzkörper
-    {+0, +0, +0, +0}, // C1,C2,M1,M2 detune in cents +-16: gegengesetzt für weiche Schwebung
-
-    // Carrier EC – schnelles Attack, aber lange Ausschwingphase
-    {
-        0.0, 0.4, 0.85, 0.85, 0.85, 0.85, 0.8, 0.8, 0.75, 0.75,
-        0.7, 0.7, 0.65, 0.65, 0.6, 0.6, 0.5, 0.5, 0.4, 0.4,
-        0.3, 0.3, 0.2, 0.2, 0.15, 0.15, 0.1, 0.1, 0.05, 0.05,
-        0.03, 0.03, 0.01, 0.01, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0
-    },
-
-    // M1EC – starker Impuls, mittellang ausschwingend
-    {
-        0.0, 0.6, 1.0, 1.0, 1.0, 1.0, 0.9, 0.9, 0.8, 0.8,
-        0.7, 0.7, 0.6, 0.6, 0.5, 0.5, 0.4, 0.4, 0.3, 0.3,
-        0.2, 0.2, 0.1, 0.1, 0.05, 0.05, 0.02, 0.02, 0.01, 0.01,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0
-    },
-
-    // M2EC – langes, sanftes Decay für Schimmer
-    {
-        0.1, 0.4, 0.8, 0.8, 0.8, 0.8, 0.7, 0.7, 0.6, 0.6,
-        0.5, 0.5, 0.4, 0.4, 0.3, 0.3, 0.2, 0.2, 0.1, 0.1,
-        0.08, 0.08, 0.06, 0.06, 0.04, 0.04, 0.02, 0.02, 0.01, 0.01,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0
-    },
-
-    // M3EC – für ganz feinen Glanz
-    {
-        0.05, 0.2, 0.3, 0.3, 0.25, 0.25, 0.2, 0.2, 0.15, 0.15,
-        0.1, 0.1, 0.08, 0.08, 0.06, 0.06, 0.04, 0.04, 0.03, 0.03,
-        0.02, 0.02, 0.01, 0.01, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0
-    },
-
-    {1600, 1200, 2000, 2300},   // ATE – schneller Attack, moderate Decay
-    16.0                        // DTE1Scaling – neutraler Verlauf
-};
-
-// PIPE  (DX7 Alg 6, derived from patchOrgan)
-const PatchConsts patchPIPE = {
-    {2.00, 1.00, 1.00, 0.50},  // C1,C2,M1,M2 Ratios.: harmonisch gestaffelt
-    {-2, +2, +0, +0}, // C1,C2,M1,M2 detune in cents +-16: stabil, keine Modulation
-    // C1EC – Carrier 1 Envelope Curve
-    {
-        0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0
-    },
-    // C2EC – Carrier 2 Envelope Curve
-    {
-        0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-        1.0, 1.0, 1.0, 1.0, 1.0, 1.0
-    },
-    // M1EC – Modulator 1 Envelope Curve
-    {
-        0.0, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-        0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-        0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-        0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9,
-        0.9, 0.9, 0.9, 0.9, 0.9, 0.9
-    },
-    // M2EC – Modulator 2 Envelope Curve
-    {
-        0.0, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8,
-        0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8,
-        0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8,
-        0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8,
-        0.8, 0.8, 0.8, 0.8, 0.8, 0.8
-    },
-    {5000, 5000, 5000, 5000},   // ATE – langsamer Attack für weichen Start
-    1.0                         // DTE1Scaling – kaum Skalierung
-};
-
-// ============================================================
-// Lookup-Array für alle 16 Factory-Presets (Index 0..15)
-// Einbinden in CGS1Emu: patches[i] = gs1FactoryPresets[i];
-// ============================================================
 static const PatchConsts* const gs1FactoryPresets[16] = {
     &gs1_HarpsichordI,      // (1)  A-1
     &gs1_HarpsichordIII,    // (2)  A-2

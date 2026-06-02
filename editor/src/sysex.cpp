@@ -6,22 +6,24 @@
 // 7-bit Encoding für MIDI-sichere Übertragung
 // ============================================================
 
+// 32 bit → 5 × 7-bit Nibbles (verlustfrei, alle 32 bit werden übertragen).
+// Jedes Nibble hält 7 bit; out[0] enthält die obersten 7 bit, out[4] die untersten 7.
 void CSysEx::encodeFloat(float val, uint8_t out[5]) {
     uint32_t bits;
     std::memcpy(&bits, &val, 4);
-    out[0] = (bits >> 28) & 0x0F;
-    out[1] = (bits >> 21) & 0x7F;
-    out[2] = (bits >> 14) & 0x7F;
-    out[3] = (bits >>  7) & 0x7F;
-    out[4] = (bits      ) & 0x7F;
+    out[0] = (bits >> 25) & 0x7F;
+    out[1] = (bits >> 18) & 0x7F;
+    out[2] = (bits >> 11) & 0x7F;
+    out[3] = (bits >>  4) & 0x7F;
+    out[4] = (bits & 0x0F) << 3;
 }
 
 float CSysEx::decodeFloat(const uint8_t in[5]) {
-    uint32_t bits = (static_cast<uint32_t>(in[0] & 0x0F) << 28)
-                  | (static_cast<uint32_t>(in[1] & 0x7F) << 21)
-                  | (static_cast<uint32_t>(in[2] & 0x7F) << 14)
-                  | (static_cast<uint32_t>(in[3] & 0x7F) <<  7)
-                  | (static_cast<uint32_t>(in[4] & 0x7F));
+    uint32_t bits = (static_cast<uint32_t>(in[0] & 0x7F) << 25)
+                  | (static_cast<uint32_t>(in[1] & 0x7F) << 18)
+                  | (static_cast<uint32_t>(in[2] & 0x7F) << 11)
+                  | (static_cast<uint32_t>(in[3] & 0x7F) <<  4)
+                  | (static_cast<uint32_t>(in[4] & 0x78) >>  3);
     float val;
     std::memcpy(&val, &bits, 4);
     return val;
@@ -30,19 +32,19 @@ float CSysEx::decodeFloat(const uint8_t in[5]) {
 void CSysEx::encodeInt(int val, uint8_t out[5]) {
     uint32_t bits;
     std::memcpy(&bits, &val, 4);
-    out[0] = (bits >> 28) & 0x0F;
-    out[1] = (bits >> 21) & 0x7F;
-    out[2] = (bits >> 14) & 0x7F;
-    out[3] = (bits >>  7) & 0x7F;
-    out[4] = (bits      ) & 0x7F;
+    out[0] = (bits >> 25) & 0x7F;
+    out[1] = (bits >> 18) & 0x7F;
+    out[2] = (bits >> 11) & 0x7F;
+    out[3] = (bits >>  4) & 0x7F;
+    out[4] = (bits & 0x0F) << 3;
 }
 
 int CSysEx::decodeInt(const uint8_t in[5]) {
-    uint32_t bits = (static_cast<uint32_t>(in[0] & 0x0F) << 28)
-                  | (static_cast<uint32_t>(in[1] & 0x7F) << 21)
-                  | (static_cast<uint32_t>(in[2] & 0x7F) << 14)
-                  | (static_cast<uint32_t>(in[3] & 0x7F) <<  7)
-                  | (static_cast<uint32_t>(in[4] & 0x7F));
+    uint32_t bits = (static_cast<uint32_t>(in[0] & 0x7F) << 25)
+                  | (static_cast<uint32_t>(in[1] & 0x7F) << 18)
+                  | (static_cast<uint32_t>(in[2] & 0x7F) << 11)
+                  | (static_cast<uint32_t>(in[3] & 0x7F) <<  4)
+                  | (static_cast<uint32_t>(in[4] & 0x78) >>  3);
     int val;
     std::memcpy(&val, &bits, 4);
     return val;

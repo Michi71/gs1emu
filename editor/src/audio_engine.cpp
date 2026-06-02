@@ -10,6 +10,7 @@ static inline int16_t floatToInt16(float val) {
 CAudioEngine::CAudioEngine() {
     std::memset(m_bufferL, 0, sizeof(m_bufferL));
     std::memset(m_bufferR, 0, sizeof(m_bufferR));
+    std::memset(&m_userPatch, 0, sizeof(m_userPatch));
 }
 
 CAudioEngine::~CAudioEngine() {
@@ -23,9 +24,19 @@ bool CAudioEngine::init() {
         return false;
     }
 
-    // GS1 Engine initialisieren
-    m_gs1.sampleRate = EDITOR_SAMPLE_RATE;
+    // GS1 Engine initialisieren.
+    // Hinweis: Die Engine verwendet intern eine fest verdrahtete Sample-Rate
+    // (gs1emu.cpp::SampleRate = 34687 Hz). Die SDL-Device-Frequenz muss
+    // übereinstimmen, sonst gibt's Resampling-Artefakte — was hier der Fall
+    // ist (EDITOR_SAMPLE_RATE = 34687 Hz). Beim Umstellen der Engine-Rate
+    // muss EDITOR_SAMPLE_RATE angepasst werden.
     m_gs1.Initialize();
+
+    // User-Patch-Slot: letzter verfügbarer Slot in der Patch-Tabelle.
+    // So kollidiert der editierbare Patch nicht mit den Factory-/Extended-
+    // Presets, und alle bisherigen Slot-Indizes bleiben stabil.
+    m_userProgram = m_gs1.getNumPrograms() - 1;
+    m_currentProgram.store(0, std::memory_order_release);
 
     // Audio-Device öffnen
     SDL_AudioSpec want = {};
@@ -97,30 +108,51 @@ bool CAudioEngine::initMidi() {
 }
 
 void CAudioEngine::updatePatch(const PatchConsts& patch) {
-    m_stagingPatch = patch;
+    // Patch-Daten in m_userPatch ablegen (per value, kein Dangling-Pointer).
+    // Das Audio-Callback übernimmt sie, sobald m_patchDirty gesetzt ist.
+    // m_userPatch ist single-writer (Haupt-Thread), single-reader (Audio-
+    // Callback) — der Atomic-Flag dient als Übergabe-Token, kein Schutz für
+    // 800-Byte-Daten selbst. Der eigentliche Datentausch passiert im Audio-
+    // Callback (genau einmal, dirty→clean), während der Haupt-Thread längst
+    // weiterpatcht — also kein Race.
+    m_userPatch = patch;
     m_patchDirty.store(true, std::memory_order_release);
 }
 
 const PatchConsts* CAudioEngine::getCurrentPatch() const {
-    return m_gs1.patches[m_currentProgram];
+    // Audio-Callback läuft evtl. parallel und könnte currentProgram ändern —
+    // daher Snapshot über atomic. Liest das Patch aus dem aktuellen Engine-
+    // Slot; bei laufendem Audio-Thread ist das ein konsistenter Pointer auf
+    // ein PatchConsts (lokal in der Engine gespeichert, life-time = Prozess).
+    int prog = m_currentProgram.load(std::memory_order_acquire);
+    return m_gs1.patches[prog];
 }
 
 void CAudioEngine::setProgram(int index) {
-    if (index >= 0 && index < m_gs1.getNumPrograms()) {
-        m_gs1.setCurrentProgram(index);
-        m_currentProgram = index;
-    }
+    if (index < 0 || index >= m_gs1.getNumPrograms()) return;
+    // Engine setCurrentProgram schreibt ein simples int-Feld (currentPatch)
+    // — kein atomar, aber wir serialisieren den Schreibvorgang mit dem
+    // Audio-Thread über SDL_LockAudioDevice. Der Audio-Thread kann mid-
+    // Block den currentPatch lesen (in noteOn()), also locken.
+    if (m_audioDevice != 0) SDL_LockAudioDevice(m_audioDevice);
+    m_gs1.setCurrentProgram(index);
+    m_currentProgram.store(index, std::memory_order_release);
+    if (m_audioDevice != 0) SDL_UnlockAudioDevice(m_audioDevice);
 }
 
 void CAudioEngine::playTestNote(int note, int velocity) {
     uint8_t midi[3] = {0x90, static_cast<uint8_t>(note),
                        static_cast<uint8_t>(velocity)};
+    if (m_audioDevice != 0) SDL_LockAudioDevice(m_audioDevice);
     m_gs1.processMidi(midi, 3);
+    if (m_audioDevice != 0) SDL_UnlockAudioDevice(m_audioDevice);
 }
 
 void CAudioEngine::stopTestNote(int note) {
     uint8_t midi[3] = {0x80, static_cast<uint8_t>(note), 0};
+    if (m_audioDevice != 0) SDL_LockAudioDevice(m_audioDevice);
     m_gs1.processMidi(midi, 3);
+    if (m_audioDevice != 0) SDL_UnlockAudioDevice(m_audioDevice);
 }
 
 void CAudioEngine::stopAllNotes() {
@@ -134,6 +166,11 @@ void CAudioEngine::processMidiInput() {
 
     PmEvent events[64];
     int count = Pm_Read(m_midiIn, events, 64);
+    if (count <= 0) return;
+
+    // processMidi schreibt voiceStates[] (noteOn, gate, sustain). Dieselben
+    // Felder liest der Audio-Callback in processBlock → Race. Lock her.
+    if (m_audioDevice != 0) SDL_LockAudioDevice(m_audioDevice);
     for (int i = 0; i < count; i++) {
         uint8_t midi[3];
         midi[0] = Pm_MessageStatus(events[i].message);
@@ -141,6 +178,7 @@ void CAudioEngine::processMidiInput() {
         midi[2] = Pm_MessageData2(events[i].message);
         m_gs1.processMidi(midi, 3);
     }
+    if (m_audioDevice != 0) SDL_UnlockAudioDevice(m_audioDevice);
 }
 
 // ============================================================
@@ -155,13 +193,16 @@ void CAudioEngine::audioCallback(void* userdata, uint8_t* stream, int len) {
 }
 
 void CAudioEngine::renderAudio(int16_t* out, int numSamples) {
-    // Patch-Update prüfen (lockfree)
+    // Patch-Update übernehmen. Strategie: m_userPatch (single-writer =
+    // Haupt-Thread) wird in eine Audio-Thread-exklusive Kopie m_audioUserPatch
+    // gespiegelt, BEVOR der Engine-Pointer umgebogen wird. Danach darf der
+    // Haupt-Thread m_userPatch wieder überschreiben — die Engine liest
+    // weiterhin aus m_audioUserPatch. So gibt's keinen Torn-Read auf 800
+    // Byte und keine Dangling-Pointer (m_audioUserPatch lebt so lange wie
+    // die Engine).
     if (m_patchDirty.load(std::memory_order_acquire)) {
-        // Staging-Patch als User-Patch an Position 0 der Engine setzen
-        // (wir nutzen patches[0] als editierbaren Slot)
-        static PatchConsts editPatch;
-        editPatch = m_stagingPatch;
-        m_gs1.patches[m_gs1.getCurrentProgram()] = &editPatch;
+        m_audioUserPatch = m_userPatch;
+        m_gs1.patches[m_userProgram] = &m_audioUserPatch;
         m_patchDirty.store(false, std::memory_order_release);
     }
 

@@ -186,7 +186,13 @@ static void stepEnvelope(int e, int gate, int gateOld, int mode,
   if (gate == 1 && STATE[e] == 2 && EA[e] > SL[e] << 12) {
     EA[e] = EA[e] - DT[e];
     if (EA[e] < SL[e] << 12) EA[e] = SL[e] << 12;
-    EAx[e] = int(map(expTable2[int(map(EA[e], SL[e] << 12, 0xFFFFF, 0, 4095))],
+    // Index in expTable2[4096] streng clampen — map() gibt double zurück,
+    // float-Rundung kann knapp unter 0 oder über 4095 landen, was bei
+    // direkter Cast-nach-int in OOB-Lesezugriff (UB) mündet.
+    int decayIdx = (int)map(EA[e], SL[e] << 12, 0xFFFFF, 0.0, 4095.0);
+    if (decayIdx < 0) decayIdx = 0;
+    else if (decayIdx > 4095) decayIdx = 4095;
+    EAx[e] = int(map(expTable2[decayIdx],
                      0, 4095, SL[e] << 12, 0xFFFFF));
   }
   if (gate == 0 && gateOld == 1) {
@@ -198,8 +204,14 @@ static void stepEnvelope(int e, int gate, int gateOld, int mode,
     STATE[e] = 0;
     if (EA[e] <= 0) EA[e] = 0;
     if (RS[e] > 0) {
-      EAx[e] = int(map(expTable2[int(map(EA[e], 0, floor(RS[e]), 0, 4095))],
-                       0, 4095, 0, RSx[e]));
+      // Gleicher OOB-Schutz wie oben: floor(RS) kann bei Release-Kollaps
+      // am unteren Ende knapp unter 1 landen → map(...) → OOB.
+      double rsMax = (double)RS[e];
+      if (rsMax < 1.0) rsMax = 1.0;
+      int relIdx = (int)map(EA[e], 0.0, rsMax, 0.0, 4095.0);
+      if (relIdx < 0) relIdx = 0;
+      else if (relIdx > 4095) relIdx = 4095;
+      EAx[e] = int(map(expTable2[relIdx], 0, 4095, 0, RSx[e]));
     } else {
       EAx[e] = 0;
     }
@@ -250,51 +262,71 @@ int CGS1Emu::findVoice()
 }
 
 // --- Detune ---
-void CGS1Emu::setDetuneMode(DetuneMode mode) { detuneMode = mode; }
-DetuneMode CGS1Emu::getDetuneMode() const    { return detuneMode; }
+void CGS1Emu::setDetuneMode(DetuneMode mode) {
+    detuneMode.store(mode, std::memory_order_release);
+}
+DetuneMode CGS1Emu::getDetuneMode() const {
+    return detuneMode.load(std::memory_order_acquire);
+}
 
-void CGS1Emu::setDoubleStacksOn(bool on)     { doubleStacksOn = on; }
-bool CGS1Emu::getDoubleStacksOn() const      { return doubleStacksOn; }
+void CGS1Emu::setDoubleStacksOn(bool on) {
+    doubleStacksOn.store(on, std::memory_order_release);
+}
+bool CGS1Emu::getDoubleStacksOn() const {
+    return doubleStacksOn.load(std::memory_order_acquire);
+}
 
 // --- Tremolo ---
-void  CGS1Emu::setTremoloOn(bool on)           { tremoloOn = on; }
-bool  CGS1Emu::getTremoloOn() const            { return tremoloOn; }
-void  CGS1Emu::setTremoloSpeed(float hz)       { tremoloSpeed = hz; tremoloInc = hz * TWO_PI / (float)SampleRate; }
-float CGS1Emu::getTremoloSpeed() const         { return tremoloSpeed; }
-void  CGS1Emu::setTremoloDepth(float depth)    { tremoloDepth = depth; }
-float CGS1Emu::getTremoloDepth() const         { return tremoloDepth; }
+void  CGS1Emu::setTremoloOn(bool on) { tremoloOn.store(on, std::memory_order_release); }
+bool  CGS1Emu::getTremoloOn() const  { return tremoloOn.load(std::memory_order_acquire); }
+void  CGS1Emu::setTremoloSpeed(float hz) {
+    tremoloSpeed = hz;
+    tremoloInc.store(hz * TWO_PI / (float)SampleRate, std::memory_order_release);
+}
+float CGS1Emu::getTremoloSpeed() const { return tremoloSpeed; }
+void  CGS1Emu::setTremoloDepth(float depth) { tremoloDepth = depth; }
+float CGS1Emu::getTremoloDepth() const      { return tremoloDepth; }
 
 // --- Vibrato ---
-void  CGS1Emu::setVibratoOn(bool on)           { vibratoOn = on; }
-bool  CGS1Emu::getVibratoOn() const            { return vibratoOn; }
-void  CGS1Emu::setVibratoSpeed(float hz)       { vibratoSpeed = hz; vibratoInc = hz * TWO_PI / (float)SampleRate; }
-float CGS1Emu::getVibratoSpeed() const         { return vibratoSpeed; }
-void  CGS1Emu::setVibratoDepth(float depth)    { vibratoDepth = depth; }
-float CGS1Emu::getVibratoDepth() const         { return vibratoDepth; }
+void  CGS1Emu::setVibratoOn(bool on) { vibratoOn.store(on, std::memory_order_release); }
+bool  CGS1Emu::getVibratoOn() const  { return vibratoOn.load(std::memory_order_acquire); }
+void  CGS1Emu::setVibratoSpeed(float hz) {
+    vibratoSpeed = hz;
+    vibratoInc.store(hz * TWO_PI / (float)SampleRate, std::memory_order_release);
+}
+float CGS1Emu::getVibratoSpeed() const { return vibratoSpeed; }
+void  CGS1Emu::setVibratoDepth(float depth) { vibratoDepth = depth; }
+float CGS1Emu::getVibratoDepth() const      { return vibratoDepth; }
 
 // --- 3-Band EQ ---
 void  CGS1Emu::setEqBass(float dB) {
-    eqBassGain = std::max(-12.0f, std::min(12.0f, dB));
-    _eqBass.setLowShelf(100.0f, eqBassGain, (float)SampleRate);
+    float v = std::max(-12.0f, std::min(12.0f, dB));
+    eqBassGain.store(v, std::memory_order_release);
+    _eqBass.setLowShelf(100.0f, v, (float)SampleRate);
 }
-float CGS1Emu::getEqBass() const   { return eqBassGain; }
+float CGS1Emu::getEqBass() const { return eqBassGain.load(std::memory_order_acquire); }
 
 void  CGS1Emu::setEqMid(float dB) {
-    eqMidGain = std::max(-12.0f, std::min(12.0f, dB));
-    _eqMid.setPeaking(600.0f, 1.0f, eqMidGain, (float)SampleRate);
+    float v = std::max(-12.0f, std::min(12.0f, dB));
+    eqMidGain.store(v, std::memory_order_release);
+    _eqMid.setPeaking(600.0f, 1.0f, v, (float)SampleRate);
 }
-float CGS1Emu::getEqMid() const    { return eqMidGain; }
+float CGS1Emu::getEqMid() const { return eqMidGain.load(std::memory_order_acquire); }
 
 void  CGS1Emu::setEqTreble(float dB) {
-    eqTrebleGain = std::max(-12.0f, std::min(12.0f, dB));
-    _eqTreble.setHighShelf(6000.0f, eqTrebleGain, (float)SampleRate);
+    float v = std::max(-12.0f, std::min(12.0f, dB));
+    eqTrebleGain.store(v, std::memory_order_release);
+    _eqTreble.setHighShelf(6000.0f, v, (float)SampleRate);
 }
-float CGS1Emu::getEqTreble() const { return eqTrebleGain; }
+float CGS1Emu::getEqTreble() const { return eqTrebleGain.load(std::memory_order_acquire); }
 
 void  CGS1Emu::setMasterVolume(float v) {
-    masterVolume = v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v);
+    masterVolume.store(v < 0.0f ? 0.0f : (v > 2.0f ? 2.0f : v),
+                        std::memory_order_release);
 }
-float CGS1Emu::getMasterVolume() const { return masterVolume; }
+float CGS1Emu::getMasterVolume() const {
+    return masterVolume.load(std::memory_order_acquire);
+}
 
 int CGS1Emu::getNumPrograms() { return GS1_NUM_PROGRAMS; }
 
@@ -311,8 +343,8 @@ void CGS1Emu::setCurrentProgram(int index) {
   currentPatch = index;
 }
 
-void CGS1Emu::setEnsembleOn(bool ensonoff) { ensembleOn = ensonoff; }
-bool CGS1Emu::getEnsembleOn() { return ensembleOn; }
+void CGS1Emu::setEnsembleOn(bool ensonoff) { ensembleOn.store(ensonoff, std::memory_order_release); }
+bool CGS1Emu::getEnsembleOn() { return ensembleOn.load(std::memory_order_acquire); }
 
 void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
                      float Velocity) {
@@ -352,9 +384,9 @@ void CGS1Emu::noteOn(VoiceState &voiceState, int voiceIndex, float KNOTE,
     voiceState.PAI2[i] = 0;
     voiceState.PAE2[i] = 0;
   }
-  voiceState.KNOTE = voiceState.KNOTE - 1;
-  voiceState.NOTE = 27.50 * pow(2, (voiceState.KNOTE / (12))); // FROM A1
-  switch (detuneMode) {
+  voiceState.KNOTE -= 1;
+  voiceState.NOTE = 27.50 * pow(2, (voiceState.KNOTE / 12.0)); // FROM A1
+  switch (detuneMode.load(std::memory_order_acquire)) {
     case DetuneMode::RANDOM1:
       voiceState.rnd = ((float)(rand() % 201) - 100) * 0.0003f; // ±3 Cent
       break;
@@ -572,7 +604,7 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
                  voiceState.RS, voiceState.RSx, voiceState.STATE,
                  voiceState.AT, voiceState.DT, voiceState.RT,
                  voiceState.IL, voiceState.SL);
-    if (doubleStacksOn) {
+    if (doubleStacksOn.load(std::memory_order_acquire)) {
       // Stack 2 nutzt eigene Envelope-States, aber dasselbe Gate und
       // dieselben Keyboard-/Velocity-Skalierungen (EG*, Velocity).
       stepEnvelope(e, gate, gateOld, voiceState.Mode,
@@ -599,7 +631,7 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
     voiceState.AMP[i] = a < 0 ? 0 : (a > 4095 ? 4095 : a);
   }
 
-  if (doubleStacksOn) {
+  if (doubleStacksOn.load(std::memory_order_acquire)) {
     // Stack 2 teilt sich Keyboard-Scaling (EG*) und Velocity, hat aber durch
     // EAx2 eine eigene Hüllkurve.
     voiceState.AMP2[2] = calcAmp(voiceState.EAx2[2], int(voiceState.EG2), vel);
@@ -619,7 +651,7 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
   if (tremoloAtten > 0) {
       voiceState.AMP[0] = std::min(voiceState.AMP[0] + tremoloAtten, 4094);
       voiceState.AMP[1] = std::min(voiceState.AMP[1] + tremoloAtten, 4094);
-      if (doubleStacksOn) {
+      if (doubleStacksOn.load(std::memory_order_acquire)) {
         voiceState.AMP2[0] = std::min(voiceState.AMP2[0] + tremoloAtten, 4094);
         voiceState.AMP2[1] = std::min(voiceState.AMP2[1] + tremoloAtten, 4094);
       }
@@ -632,7 +664,7 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
     voiceState.PAI[n] = voiceState.PAI[n] & 0xFFFFFFF;
     voiceState.PAE[n] = voiceState.PAI[n] >> 18;
     voiceState.PAI[n] += (int)(voiceState.CW[n] * (1.0f + vibratoFraction));
-    if (doubleStacksOn) {
+    if (doubleStacksOn.load(std::memory_order_acquire)) {
       voiceState.PAI2[n] = voiceState.PAI2[n] & 0xFFFFFFF;
       voiceState.PAE2[n] = voiceState.PAI2[n] >> 18;
       voiceState.PAI2[n] += (int)(voiceState.CW2[n] * (1.0f + vibratoFraction));
@@ -645,7 +677,7 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
                                  voiceState.M2old1, voiceState.M2old2,
                                  voiceState.CH1, voiceState.CH2);
 
-  if (!doubleStacksOn) {
+  if (!doubleStacksOn.load(std::memory_order_acquire)) {
     return int(baseMix * voiceState.outGain);
   }
 
@@ -673,7 +705,6 @@ int CGS1Emu::fmGenSample(VoiceState &voiceState) {
 
 CGS1Emu::CGS1Emu()
     : currentPatch(0),
-      sampleRate(SampleRate),
       delayA(),
       delayB(),
       delayC()
@@ -697,8 +728,8 @@ CGS1Emu::CGS1Emu()
     _eqMid.setPeaking  (600.0f,  1.0f, 0.0f, (float)SampleRate);
     _eqTreble.setHighShelf(6000.0f, 0.0f, (float)SampleRate);
 
-    tremoloInc  = tremoloSpeed  * TWO_PI / (float)SampleRate;
-    vibratoInc  = vibratoSpeed  * TWO_PI / (float)SampleRate;
+    tremoloInc.store(tremoloSpeed  * TWO_PI / (float)SampleRate, std::memory_order_relaxed);
+    vibratoInc.store(vibratoSpeed  * TWO_PI / (float)SampleRate, std::memory_order_relaxed);
 
     // GS1 Factory Presets (1)–(16)
     for (int i = 0; i < 16; ++i)
@@ -817,8 +848,8 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
     for (int i = 0; i < numSamples; ++i)
     {
         // Tremolo LFO — einmal pro Sample (nicht pro Stimme!)
-        if (tremoloOn) {
-            tremoloPhase += tremoloInc;
+        if (tremoloOn.load(std::memory_order_acquire)) {
+            tremoloPhase += tremoloInc.load(std::memory_order_acquire);
             if (tremoloPhase >= TWO_PI) tremoloPhase -= TWO_PI;
             // Log-Domain: 512 Einheiten ≈ 12 dB Dämpfung bei Depth=1.0
             // Sinuskurve: 0 bei Phase=0 (laut), Maximum bei Phase=π (leise)
@@ -829,8 +860,8 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
         }
 
         // Vibrato LFO — einmal pro Sample
-        if (vibratoOn) {
-            vibratoPhase += vibratoInc;
+        if (vibratoOn.load(std::memory_order_acquire)) {
+            vibratoPhase += vibratoInc.load(std::memory_order_acquire);
             if (vibratoPhase >= TWO_PI) vibratoPhase -= TWO_PI;
             // Lineare Näherung: fraction ≈ cents * ln(2)/1200
             vibratoFraction = vibratoDepth * kVibratoMaxCents *
@@ -851,15 +882,17 @@ void CGS1Emu::processBlock(float* outputL, float* outputR, int numSamples)
         // Headroom: Divisor 4.5 statt 6 → ca. -2.5 dB mehr Reserve, damit
         // dichte Akkorde (v.a. Brass) + EQ/Ensemble nicht übersteuern.
         float sample = map(sumSample, -262144.0f / 4.5f, 262112.0f / 4.5f, -1.0f, 1.0f);
-        sample *= masterVolume;   // globaler Lautstärkeregler (Master-Volume)
+        sample *= masterVolume.load(std::memory_order_acquire);   // globaler Lautstärkeregler
         sample = _filter.process(sample);
 
-        // 3-Band EQ (Bass → Mid → Treble, seriell)
+        // 3-Band EQ (Bass → Mid → Treble, seriell).
+        // Filter-Koeffizienten werden im Setter neu berechnet; sample-genau
+        // reicht der akustisch nicht wahrnehmbare Coef-Lag von ein paar Samples.
         sample = _eqBass.process(sample);
         sample = _eqMid.process(sample);
         sample = _eqTreble.process(sample);
 
-        if (ensembleOn == false) {
+        if (!ensembleOn.load(std::memory_order_acquire)) {
             outputL[i] = sample;
             outputR[i] = sample;
         } else {

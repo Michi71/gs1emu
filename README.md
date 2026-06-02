@@ -166,8 +166,8 @@ gs1emu/
 │       ├── gs1emu.h          # CGS1Emu class, VoiceState, GS1BiquadFilter
 │       ├── gs1emu.cpp         # FM engine, voice management, LFO, EQ
 │       ├── gs1_presets.h      # PatchConsts structs, factory preset array
-│       ├── delayline.h/.cpp   # Interpolated delay line (ensemble effect)
-│       └── patchdata.h        # Raw patch parameter tables
+│       ├── gs1_presets_extended.h  # Extended Preset Pack (20 presets, EP/GP/VB/MB)
+│       └── delayline.h/.cpp   # Interpolated delay line (ensemble effect)
 ├── editor/
 │   └── src/
 │       ├── main.cpp           # Entry point
