@@ -74,3 +74,9 @@ build/
 .claude/
 CLAUDE.md
 .abacusai/
+
+# Lokale Sample-Bibliotheken (Eingabe für tools/sample2gs1, groß/Lizenz)
+samples/
+
+# CMA-ES-Logverzeichnis (von der cma-Lib im cwd angelegt)
+outcmaes/
