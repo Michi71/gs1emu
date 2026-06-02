@@ -4,6 +4,7 @@
 #include "gs1_presets.h"
 #include "gs1_presets_extended.h"  // Extended Preset Pack (20 Presets, EP/GP/VB/MB)
 #include "gs1_steinway_opt.h"      // sample2gs1: CMA-ES-optimiertes Steinway-Preset
+#include "gs1_wurli_opt.h"         // sample2gs1: CMA-ES-optimiertes Wurlitzer-Preset
 #include <atomic>
 #include <cstdint>
 #include <cstring>
@@ -14,7 +15,7 @@
 #endif
 
 // Gesamtzahl der Programme: 16 Factory-Presets + Extended Preset Pack.
-static constexpr int GS1_NUM_PROGRAMS = 16 + GS1_EXTENDED_COUNT + 1; // +1 = Steinway Opt (sample2gs1)
+static constexpr int GS1_NUM_PROGRAMS = 16 + GS1_EXTENDED_COUNT + 2; // +2 = Steinway/Wurli Opt (sample2gs1)
 
 struct GS1BiquadFilter {
     float b0, b1, b2;

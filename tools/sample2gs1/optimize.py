@@ -19,7 +19,9 @@ CLI = os.path.join(OUT, "gs1_render_params")
 ENGINE_SR = 34687
 DUR = 2.0
 AMP_PER_DB = 4095.0 / 96.0
-EVAL_NOTES = [36, 48, 60, 72, 84]   # C2 C3 C4 C5 C6
+EVAL_NOTES = [33, 43, 48, 60, 72, 84]   # A1 G2 C3 C4 C5 C6 (low-lastig für Bias)
+def note_weight(midi):                  # tiefe Töne stärker gewichten
+    return 2.0 if midi <= 50 else 1.0
 
 # ---------- .gs1 I/O ----------
 def read_gs1(path):
@@ -71,6 +73,7 @@ SPEC = [
     ("det_c2",              0.0,  20.0,   4.0),
     ("det_m2",              0.0,  30.0,  12.0),
     ("dtkbd_scale",         0.8,   3.0,   3.0),
+    ("ds_ratio_m2",         1.0,   6.0,   6.0),   # Layer-„Ting"-Cluster (kleiner = weniger Vor-Klingeln)
 ]
 def seed_norm():
     return [ (s-lo)/(hi-lo) for (_,lo,hi,s) in SPEC ]
@@ -102,6 +105,7 @@ def decode(xn, base):
     det = list(base["Detune"]); det[1] = g["det_c2"]; det[3] = g["det_m2"]
     p["Detune"]       = det
     p["DTEKbdScale"]  = [g["dtkbd_scale"]]
+    p["DS_Ratio"]     = [1.0, 1.0, 2.0, g["ds_ratio_m2"]]   # Layer-Cluster, M2 suchbar
     return p
 
 # ---------- Audio-Features (SR-unabhängig vergleichbar) ----------
@@ -117,6 +121,13 @@ def spec_db(x, sr):
     acc /= max(cnt, 1); fr = np.fft.rfftfreq(win, 1/sr)
     mag = np.interp(GRID, fr, acc)
     db = 20*np.log10(mag + 1e-9); db -= db.max()
+    return np.clip(db, -60, 0)
+def attack_spec(x, sr, dur=0.12):
+    """Onset-Spektrum (erste dur s) → erfasst Anschlags-Transienten/Vor-Klingeln."""
+    seg = x[:int(dur*sr)]
+    if len(seg) < 512: return np.full(len(GRID), -60.0)
+    sp = np.abs(np.fft.rfft(seg*np.hanning(len(seg)))); fr = np.fft.rfftfreq(len(seg), 1/sr)
+    mag = np.interp(GRID, fr, sp); db = 20*np.log10(mag + 1e-9); db -= db.max()
     return np.clip(db, -60, 0)
 def env_db(x, npts=200):
     hop = 256; m = (len(x)//hop)*hop
@@ -152,6 +163,23 @@ def load_wav(path):
     x = np.frombuffer(w.readframes(n), dtype=np.int16).astype(np.float64)/32768.0
     return x, sr
 
+import glob
+def pick_samples(sample_dir, vel="hi"):
+    """Pro Note EINEN Velocity-Layer (NNN-VVV.wav). vel: hi/lo/mid."""
+    byn = {}
+    for f in glob.glob(os.path.join(sample_dir, "*.wav")):
+        parts = os.path.basename(f)[:-4].split("-")
+        if len(parts) < 2: continue
+        try: m, v = int(parts[0]), int(parts[1])
+        except ValueError: continue
+        if 12 <= m <= 120: byn.setdefault(m, []).append((v, f))
+    out = {}
+    for m, lst in byn.items():
+        lst.sort()
+        out[m] = (lst[-1] if vel == "hi" else lst[0] if vel == "lo"
+                  else lst[len(lst)//2])[1]
+    return out
+
 # ---------- Render via CLI ----------
 def render(preset_path, notes):
     out = subprocess.run([CLI, preset_path, str(DUR)] + [str(n) for n in notes],
@@ -164,33 +192,41 @@ def main():
     sample_dir = sys.argv[1] if len(sys.argv) > 1 else "samples/Steinway"
     name       = sys.argv[2] if len(sys.argv) > 2 else "Steinway"
     iters      = int(sys.argv[3]) if len(sys.argv) > 3 else 40
+    vel        = sys.argv[4] if len(sys.argv) > 4 else "hi"
     base = read_gs1(os.path.join(OUT, f"{name.lower()}_base.gs1"))
+
+    # Eval-Noten: Schnittmenge aus Wunschliste und tatsächlich vorhandenen Samples
+    sel = pick_samples(sample_dir, vel)
+    eval_notes = [n for n in EVAL_NOTES if n in sel] or sorted(sel)[::max(1, len(sel)//5)]
+    print(f"Velocity '{vel}', Eval-Noten: {eval_notes}")
 
     # Ziel-Features cachen (Spektrum, Hüllkurve, Harmonik)
     def f0_of(midi): return 440.0 * 2**((midi-69)/12.0)
     tgt = {}
-    for nmidi in EVAL_NOTES:
-        x, sr = load_wav(os.path.join(sample_dir, f"{nmidi:03d}-127.wav"))
+    for nmidi in eval_notes:
+        x, sr = load_wav(sel[nmidi])
         hd, hm = harm_db(x, sr, f0_of(nmidi))
-        tgt[nmidi] = (spec_db(x, sr), env_db(x), hd, hm)
+        tgt[nmidi] = (spec_db(x, sr), env_db(x), hd, hm, attack_spec(x, sr))
+    wsum = sum(note_weight(n) for n in eval_notes)
 
     tmp = os.path.join(OUT, "_eval.gs1")
     def make_loss(b):
         def loss(xn):
             write_gs1(decode(xn, b), tmp)
-            ren = render(tmp, EVAL_NOTES)
+            ren = render(tmp, eval_notes)
             tot = 0.0
-            for k, nmidi in enumerate(EVAL_NOTES):
-                gs = ren[k]
+            for k, nmidi in enumerate(eval_notes):
+                gs = ren[k]; w = note_weight(nmidi)
                 if gs.size < 4096 or not np.isfinite(gs).all() or np.abs(gs).max() < 1e-5:
-                    tot += 50.0; continue      # stille/kaputte Stimme bestrafen
-                sd, ed, hd, hm = tgt[nmidi]
+                    tot += w*50.0; continue    # stille/kaputte Stimme bestrafen
+                sd, ed, hd, hm, ad = tgt[nmidi]
                 ls = np.mean(np.abs(spec_db(gs, ENGINE_SR) - sd))
                 le = np.mean(np.abs(env_db(gs) - ed))
                 rd, rm = harm_db(gs, ENGINE_SR, f0_of(nmidi))
                 lh = harm_loss(rd, rm, hd, hm)
-                tot += 0.5*ls + 1.0*lh + 0.4*le     # Harmonik stark gewichtet
-            return tot / len(EVAL_NOTES)
+                la = np.mean(np.abs(attack_spec(gs, ENGINE_SR) - ad))  # Onset/Vor-Klingeln
+                tot += w*(0.5*ls + 1.0*lh + 0.4*le + 0.5*la)
+            return tot / wsum
         return loss
 
     def run_cma(b, niter, sigma=0.25):
@@ -199,23 +235,42 @@ def main():
         es.optimize(make_loss(b))
         return es.result.xbest, es.result.fbest
 
-    # ---- Ratio-Suche: Kandidaten kurz screenen, Sieger voll optimieren ----
-    RATIOS = [[1,2,1,4], [1,1,1,3], [1,2,3,4], [1,1,2,4], [1,2,1,3]]
-    screen = max(12, iters // 3)
+    def with_fields(b, ratio=None, fmmode=None):
+        nb = {k: list(v) for k, v in b.items()}
+        if ratio is not None: nb["Ratio"] = [float(x) for x in ratio]
+        if fmmode is not None: nb["FMmode"] = [float(x) for x in fmmode]
+        return nb
+
     print(f"Start-Loss (Stufe-1-Seed): {make_loss(base)(seed_norm()):.3f}\n")
+
+    # ---- Phase 1: Ratio-Screen (FMmode = NORM) ----
+    RATIOS = [[1,1,1,2], [1,1,1,3], [1,2,1,4], [1,1,2,3], [1,2,1,3]]
+    screen = max(12, iters // 3)
     print(f"=== Ratio-Screen ({screen} Iter je Kandidat) ===")
     results = []
     for r in RATIOS:
-        b = {k: list(v) for k, v in base.items()}; b["Ratio"] = [float(x) for x in r]
-        xb, fb = run_cma(b, screen)
-        results.append((fb, r, xb)); print(f"  Ratio {r}  → Loss {fb:.3f}")
+        xb, fb = run_cma(with_fields(base, ratio=r), screen)
+        results.append((fb, r)); print(f"  Ratio {r}  → Loss {fb:.3f}")
     results.sort(key=lambda t: t[0])
-    best_loss0, best_ratio, _ = results[0]
-    print(f"\n→ bester Ratio: {best_ratio}  (Loss {best_loss0:.3f})")
+    best_ratio = results[0][1]
+    print(f"→ bester Ratio: {best_ratio}  (Loss {results[0][0]:.3f})")
 
-    # ---- Finaler, längerer Lauf auf dem Sieger-Ratio ----
-    bfin = {k: list(v) for k, v in base.items()}; bfin["Ratio"] = [float(x) for x in best_ratio]
-    print(f"\n=== Finale Optimierung ({iters} Iter, Ratio {best_ratio}) ===")
+    # ---- Phase 2: FMmode-Screen auf dem Sieger-Ratio ----
+    # 0=NORM, 1/2=Self-Feedback (leicht/stark, reedy/buzzy), 3=Cross-Mod.
+    FMMODES = [[0,0], [1,1], [2,2], [2,1], [1,0], [2,0], [3,0], [3,3]]
+    screen2 = max(10, iters // 4)
+    print(f"\n=== FMmode-Screen ({screen2} Iter je Kandidat, Ratio {best_ratio}) ===")
+    fres = []
+    for fm in FMMODES:
+        xb, fb = run_cma(with_fields(base, ratio=best_ratio, fmmode=fm), screen2)
+        fres.append((fb, fm)); print(f"  FMmode {fm}  → Loss {fb:.3f}")
+    fres.sort(key=lambda t: t[0])
+    best_fm = fres[0][1]
+    print(f"→ bester FMmode: {best_fm}  (Loss {fres[0][0]:.3f})")
+
+    # ---- Finaler, längerer Lauf auf Sieger-Ratio + -FMmode ----
+    bfin = with_fields(base, ratio=best_ratio, fmmode=best_fm)
+    print(f"\n=== Finale Optimierung ({iters} Iter, Ratio {best_ratio}, FMmode {best_fm}) ===")
     es = cma.CMAEvolutionStrategy(seed_norm(), 0.25, {
         'bounds': [0, 1], 'maxiter': iters, 'popsize': 12, 'verb_disp': 8, 'seed': 1})
     es.optimize(make_loss(bfin))
@@ -226,7 +281,7 @@ def main():
     opt_path = os.path.join(OUT, f"{name.lower()}_opt.gs1")
     write_gs1(best, opt_path)
     g = denorm(xbest)
-    print(f"\n=== Optimierte Parameter (Ratio {best_ratio}) ===")
+    print(f"\n=== Optimierte Parameter (Ratio {best_ratio}, FMmode {best_fm}) ===")
     for nm, _, _, _ in SPEC:
         print(f"  {nm:14s} = {g[nm]:.3f}")
     print(f"\n→ optimiertes Preset: {opt_path}")

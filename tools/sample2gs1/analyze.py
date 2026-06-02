@@ -127,21 +127,34 @@ def fmt_arr(a, perline=12):
         s.append("      " + chunk)
     return "{\n" + ",\n".join(s) + " }"
 
+# ---------- Sample-Auswahl: pro Note EINEN Velocity-Layer ----------
+# Dateiname NNN-VVV.wav. vel: "hi" (höchste), "lo" (niedrigste), "mid" (mittlere)
+# Velocity pro Note. Rückwärtskompatibel: bei nur 1 Layer (z.B. NNN-127) egal.
+def pick_samples(sample_dir, vel="hi"):
+    byn = {}
+    for f in glob.glob(os.path.join(sample_dir, "*.wav")):
+        parts = os.path.basename(f)[:-4].split("-")
+        if len(parts) < 2: continue
+        try: m, v = int(parts[0]), int(parts[1])
+        except ValueError: continue
+        if 12 <= m <= 120: byn.setdefault(m, []).append((v, f))
+    out = {}
+    for m, lst in byn.items():
+        lst.sort()
+        out[m] = (lst[-1] if vel == "hi" else lst[0] if vel == "lo"
+                  else lst[len(lst)//2])[1]
+    return out
+
 # ---------- Hauptlauf ----------
 def main():
     sample_dir = sys.argv[1] if len(sys.argv) > 1 else "samples/Steinway"
     name       = sys.argv[2] if len(sys.argv) > 2 else "Steinway"
-    files = sorted(glob.glob(os.path.join(sample_dir, "*.wav")))
-    notes = []
-    for f in files:
-        base = os.path.basename(f)
-        try: midi = int(base.split('-')[0])
-        except ValueError: continue
-        if 12 <= midi <= 120:
-            notes.append(analyze_note(f, midi))
-    notes.sort(key=lambda d: d['midi'])
+    vel        = sys.argv[3] if len(sys.argv) > 3 else "hi"
+    sel = pick_samples(sample_dir, vel)
+    notes = [analyze_note(path, m) for m, path in sorted(sel.items())]
     if not notes:
         print("Keine Samples gefunden in", sample_dir); sys.exit(1)
+    print(f"Velocity-Auswahl: '{vel}'  ({len(notes)} Noten)")
 
     # ---- Referenzwerte / Aggregation ----
     peak_max = max(n['peak_db'] for n in notes)
