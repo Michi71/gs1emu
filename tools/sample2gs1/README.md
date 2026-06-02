@@ -44,7 +44,16 @@ python3 tools/sample2gs1/analyze.py samples/Steinway Steinway
 # 2) Stufe 2: CMA-ES-Feinschliff (45 Iterationen)
 python3 tools/sample2gs1/optimize.py samples/Steinway Steinway 45
 #   → out/steinway_opt.gs1     (optimiertes Preset)
+
+# 3) optimiertes .gs1 → einfügefertiger C++ PatchConsts-Header
+python3 tools/sample2gs1/gs1_to_header.py \
+    out/steinway_opt.gs1 gs1_SteinwayOpt "Steinway Opt" \
+    presets/gs1_Steinway_opt.h
 ```
+
+> **Wichtig:** `gs1_<Name>_gen.h` (aus `analyze.py`) ist nur das **Stufe-1**-
+> Ergebnis. Das optimierte Preset lebt in `out/<name>_opt.gs1` — mit
+> `gs1_to_header.py` daraus den finalen Header erzeugen (`presets/`).
 
 ## Dateien
 | Datei | Zweck |
@@ -53,6 +62,8 @@ python3 tools/sample2gs1/optimize.py samples/Steinway Steinway 45
 | `optimize.py` | Stufe 2: CMA-ES Analysis-by-Synthesis (Multi-Noten-Loss) |
 | `gs1_render_params.cpp` | CLI: rendert ein `.gs1`-Textpreset → rohe float32 (stdout) |
 | `render_note.cpp` | rendert den `gs1_<Name>_gen.h`-Preset zu WAV (A/B-Audition) |
+| `gs1_to_header.py` | `.gs1` (z.B. optimiert) → einfügefertiger C++ `PatchConsts`-Block |
+| `presets/` | fertige, kuratierte Header-Presets (versioniert) |
 | `out/` | generierte Artefakte (preset, WAVs, Binärdateien) — nicht versioniert |
 
 ## `.gs1`-Preset-Format
