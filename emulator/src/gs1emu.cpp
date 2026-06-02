@@ -738,6 +738,8 @@ CGS1Emu::CGS1Emu()
     // Extended Preset Pack (17)–(36) hinten anhängen → im Standalone durchscrollbar.
     for (int i = 0; i < GS1_EXTENDED_COUNT; ++i)
         patches[16 + i] = gs1ExtendedPresets[i];
+    // sample2gs1: CMA-ES-optimiertes Steinway-Preset als Programm (37).
+    patches[16 + GS1_EXTENDED_COUNT] = &gs1_SteinwayOpt;
 
     currentPatch = 0;
 }
