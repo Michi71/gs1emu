@@ -7,7 +7,7 @@ target_include_directories(gs1emu PUBLIC
     ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
-# C++ standard for Dexed compatibility
+# C++ standard
 set_target_properties(gs1emu PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
