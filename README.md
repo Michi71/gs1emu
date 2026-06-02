@@ -14,24 +14,32 @@ The GS1 (1981) was Yamaha's first commercially available FM synthesizer — a gr
 ```
 FM Module (2× per GS1):
 
-        +-----+                                         +-----------+
-        |     V                                         V           |
-        |   +-----------------------+   +-----------------------+   |
-   Pi   |   |     Modulator 1       |   |     Modulator 2       |   | Pi
-   Pi/2 |   | VRG / EG / EC / PG/OP |   | VRG / EG / EC / PG/OP |   | Pi/2
-        |   +----------+------------+   +------------+----------+   |
-        |              |                             |              |
-        +--------------+                             +--------------+
-                       |                             |
-                       V                             V
-             +------------------+         +------------------+
-             |    Carrier 1     |         |    Carrier 2     |
-             | VRG/EG/EC/PG/OPC |         | VRG/EG/EC/PG/OPC |
-             +------------------+         +------------------+
-                       |                             |
-                       +-------------+---------------+
-                                     V
-                              DAC / Output
+                            +-------+    +------+
+        +-----+             |       |    |      |            +-----+
+        |     V             V       |    |      V            V     |
+        |   +------------------+    |    |  +------------------+   |
+   Pi   |   |   Modulator 1    |    |    |  |   Modulator 2    |   | Pi
+   Pi/2 |   | VRG/EG/EC/PG/OPM |    |    |  | VRG/EG/EC/PG/OPM |   | Pi/2
+        |   +-+----------------+    |    |  +----------------+-+   |
+        |     |       |             |    ^            |      |     |
+        +--<--+       |             |    |            |      +-->--+
+                      |             +----------<------+
+                      +----->------------+            |
+                      V                               V
+            +------------------+            +------------------+
+            |    Carrier 1     |            |    Carrier 2     |
+            | VRG/EG/EC/PG/OPC |            | VRG/EG/EC/PG/OPC |
+            +------------------+            +------------------+
+                      |                             |
+                      |                             |
+                      V                             V
+            +--------------------------------------------------+
+            |        ACC            ADD            ACC         |
+            |                                                  |
+            |                     OUPTPUT                      |
+            |                                                  |
+            |                       DAC                        |
+            +--------------------------------------------------+
 ```
 
 Two such FM modules run in parallel — 4 operators total per voice (2 Carriers + 2 Modulators), with configurable cross-modulation between stacks.
