@@ -742,6 +742,11 @@ CGS1Emu::CGS1Emu()
     patches[16 + GS1_EXTENDED_COUNT]     = &gs1_SteinwayOpt;
     patches[16 + GS1_EXTENDED_COUNT + 1] = &gs1_WurliOpt;
     patches[16 + GS1_EXTENDED_COUNT + 2] = &gs1_RhodesOpt;
+    patches[16 + GS1_EXTENDED_COUNT + 3] = &gs1_Piano_1Opt;
+
+    patches[16 + GS1_EXTENDED_COUNT + 4] = &gs1_MarimbaOpt;
+    patches[16 + GS1_EXTENDED_COUNT + 5] = &gs1_PipeOrganOpt;
+    patches[16 + GS1_EXTENDED_COUNT + 6] = &gs1_TrumpetOpt;
 
     currentPatch = 0;
 }
